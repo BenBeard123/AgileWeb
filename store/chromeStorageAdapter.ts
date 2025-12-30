@@ -31,9 +31,21 @@ export class ChromeStorageAdapter {
   async getAll(): Promise<ChromeStorageData> {
     if (!this.isChromeExtension()) {
       // Fallback to localStorage for web app
-      const stored = localStorage.getItem('agileweb-data');
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = localStorage.getItem('agileweb-data');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Validate structure
+          return {
+            children: Array.isArray(parsed.children) ? parsed.children : [],
+            activeChildId: parsed.activeChildId || null,
+            blockedAttempts: Array.isArray(parsed.blockedAttempts) ? parsed.blockedAttempts : [],
+            auditLog: Array.isArray(parsed.auditLog) ? parsed.auditLog : [],
+            sitePolicies: Array.isArray(parsed.sitePolicies) ? parsed.sitePolicies : [],
+          };
+        }
+      } catch (error) {
+        console.error('Error reading from localStorage:', error);
       }
       return {
         children: [],
@@ -44,33 +56,67 @@ export class ChromeStorageAdapter {
       };
     }
 
-    return new Promise((resolve) => {
-      chrome.storage.sync.get(['children', 'activeChildId', 'blockedAttempts', 'auditLog', 'sitePolicies'], (result) => {
-        resolve({
-          children: result.children || [],
-          activeChildId: result.activeChildId || null,
-          blockedAttempts: result.blockedAttempts || [],
-          auditLog: result.auditLog || [],
-          sitePolicies: result.sitePolicies || [],
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.storage.sync.get(['children', 'activeChildId', 'blockedAttempts', 'auditLog', 'sitePolicies'], (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('Chrome storage error:', chrome.runtime.lastError);
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          resolve({
+            children: Array.isArray(result.children) ? result.children : [],
+            activeChildId: result.activeChildId || null,
+            blockedAttempts: Array.isArray(result.blockedAttempts) ? result.blockedAttempts : [],
+            auditLog: Array.isArray(result.auditLog) ? result.auditLog : [],
+            sitePolicies: Array.isArray(result.sitePolicies) ? result.sitePolicies : [],
+          });
         });
-      });
+      } catch (error) {
+        console.error('Error in getAll:', error);
+        reject(error);
+      }
     });
   }
 
   // Set all data to Chrome storage
   async setAll(data: ChromeStorageData): Promise<void> {
+    // Validate data structure
+    const validatedData: ChromeStorageData = {
+      children: Array.isArray(data.children) ? data.children : [],
+      activeChildId: data.activeChildId || null,
+      blockedAttempts: Array.isArray(data.blockedAttempts) ? data.blockedAttempts : [],
+      auditLog: Array.isArray(data.auditLog) ? data.auditLog : [],
+      sitePolicies: Array.isArray(data.sitePolicies) ? data.sitePolicies : [],
+    };
+
     if (!this.isChromeExtension()) {
       // Fallback to localStorage for web app
-      localStorage.setItem('agileweb-data', JSON.stringify(data));
-      this.notifyListeners(data);
+      try {
+        localStorage.setItem('agileweb-data', JSON.stringify(validatedData));
+        this.notifyListeners(validatedData);
+      } catch (error) {
+        console.error('Error writing to localStorage:', error);
+        throw error;
+      }
       return;
     }
 
-    return new Promise((resolve) => {
-      chrome.storage.sync.set(data, () => {
-        this.notifyListeners(data);
-        resolve();
-      });
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.storage.sync.set(validatedData, () => {
+          if (chrome.runtime.lastError) {
+            console.error('Chrome storage error:', chrome.runtime.lastError);
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          this.notifyListeners(validatedData);
+          resolve();
+        });
+      } catch (error) {
+        console.error('Error in setAll:', error);
+        reject(error);
+      }
     });
   }
 

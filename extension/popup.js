@@ -21,23 +21,46 @@ async function hashPassword(password) {
 
 async function getPasswordConfig() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get(['agileweb_parental_password'], (result) => {
-      if (result.agileweb_parental_password) {
-        resolve(result.agileweb_parental_password);
-      } else {
-        resolve({ hasPassword: false, passwordHash: '' });
-      }
-    });
+    try {
+      chrome.storage.sync.get(['agileweb_parental_password'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Chrome storage error:', chrome.runtime.lastError);
+          resolve({ hasPassword: false, passwordHash: '' });
+          return;
+        }
+        if (result.agileweb_parental_password && typeof result.agileweb_parental_password === 'object') {
+          const config = result.agileweb_parental_password;
+          resolve({
+            hasPassword: Boolean(config.hasPassword),
+            passwordHash: typeof config.passwordHash === 'string' ? config.passwordHash : '',
+          });
+        } else {
+          resolve({ hasPassword: false, passwordHash: '' });
+        }
+      });
+    } catch (error) {
+      console.error('Error in getPasswordConfig:', error);
+      resolve({ hasPassword: false, passwordHash: '' });
+    }
   });
 }
 
 async function verifyPassword(inputPassword) {
-  const config = await getPasswordConfig();
-  if (!config.hasPassword) {
-    return true; // No password set
+  if (!inputPassword || typeof inputPassword !== 'string' || inputPassword.trim().length === 0) {
+    return false;
   }
-  const inputHash = await hashPassword(inputPassword);
-  return inputHash === config.passwordHash;
+
+  try {
+    const config = await getPasswordConfig();
+    if (!config.hasPassword || !config.passwordHash) {
+      return true; // No password set
+    }
+    const inputHash = await hashPassword(inputPassword);
+    return inputHash === config.passwordHash;
+  } catch (error) {
+    console.error('Error verifying password:', error);
+    return false;
+  }
 }
 
 // Check if password is required and verify
@@ -62,32 +85,45 @@ async function checkPasswordAccess() {
   }
 
   // Show password screen
-  document.getElementById('password-screen').style.display = 'block';
-  document.getElementById('main-content').style.display = 'none';
-  
+  const passwordScreen = document.getElementById('password-screen');
+  const mainContent = document.getElementById('main-content');
   const passwordInput = document.getElementById('password-input');
   const verifyButton = document.getElementById('verify-password');
   const errorMessage = document.getElementById('password-error');
   
+  if (!passwordScreen || !mainContent || !passwordInput || !verifyButton || !errorMessage) {
+    console.error('Required DOM elements not found');
+    return;
+  }
+  
+  passwordScreen.style.display = 'block';
+  mainContent.style.display = 'none';
+  
   const handleVerify = async () => {
     const password = passwordInput.value;
-    if (!password) {
+    if (!password || password.trim().length === 0) {
       errorMessage.textContent = 'Please enter a code.';
       errorMessage.style.display = 'block';
       return;
     }
     
-    const isValid = await verifyPassword(password);
-    if (isValid) {
-      sessionStorage.setItem('agileweb_password_verified', 'true');
-      document.getElementById('password-screen').style.display = 'none';
-      document.getElementById('main-content').style.display = 'block';
-      await loadStatus();
-    } else {
-      errorMessage.textContent = 'Incorrect code. Please try again.';
+    try {
+      const isValid = await verifyPassword(password);
+      if (isValid) {
+        sessionStorage.setItem('agileweb_password_verified', 'true');
+        passwordScreen.style.display = 'none';
+        mainContent.style.display = 'block';
+        await loadStatus();
+      } else {
+        errorMessage.textContent = 'Incorrect code. Please try again.';
+        errorMessage.style.display = 'block';
+        passwordInput.value = '';
+        passwordInput.focus();
+      }
+    } catch (error) {
+      console.error('Error verifying password:', error);
+      errorMessage.textContent = 'An error occurred. Please try again.';
       errorMessage.style.display = 'block';
-      passwordInput.value = '';
-      passwordInput.focus();
     }
   };
   
@@ -102,43 +138,90 @@ async function checkPasswordAccess() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await checkPasswordAccess();
-  
-  document.getElementById('open-dashboard').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:3000' });
-  });
-  
-  document.getElementById('open-settings').addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
-  });
-  
-  document.getElementById('setup-profile').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:3000' });
-  });
+  try {
+    await checkPasswordAccess();
+    
+    const openDashboardBtn = document.getElementById('open-dashboard');
+    const openSettingsBtn = document.getElementById('open-settings');
+    const setupProfileBtn = document.getElementById('setup-profile');
+    
+    if (openDashboardBtn) {
+      openDashboardBtn.addEventListener('click', () => {
+        try {
+          chrome.tabs.create({ url: 'http://localhost:3000' });
+        } catch (error) {
+          console.error('Error opening dashboard:', error);
+        }
+      });
+    }
+    
+    if (openSettingsBtn) {
+      openSettingsBtn.addEventListener('click', () => {
+        try {
+          chrome.runtime.openOptionsPage();
+        } catch (error) {
+          console.error('Error opening settings:', error);
+        }
+      });
+    }
+    
+    if (setupProfileBtn) {
+      setupProfileBtn.addEventListener('click', () => {
+        try {
+          chrome.tabs.create({ url: 'http://localhost:3000' });
+        } catch (error) {
+          console.error('Error opening setup:', error);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error initializing popup:', error);
+  }
 });
 
 async function loadStatus() {
   try {
-    const result = await chrome.storage.sync.get(['children', 'activeChildId', 'blockedAttempts']);
-    const children = result.children || [];
-    const activeChildId = result.activeChildId;
-    const blockedAttempts = result.blockedAttempts || [];
+    const result = await new Promise((resolve, reject) => {
+      try {
+        chrome.storage.sync.get(['children', 'activeChildId', 'blockedAttempts'], (result) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          resolve(result);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    const children = Array.isArray(result.children) ? result.children : [];
+    const activeChildId = result.activeChildId || null;
+    const blockedAttempts = Array.isArray(result.blockedAttempts) ? result.blockedAttempts : [];
+    
+    const statusContainer = document.getElementById('status-container');
+    const noProfile = document.getElementById('no-profile');
+    const activeProfile = document.getElementById('active-profile');
+    const ageGroup = document.getElementById('age-group');
+    const blockedCount = document.getElementById('blocked-count');
     
     if (!activeChildId || children.length === 0) {
-      document.getElementById('status-container').style.display = 'none';
-      document.getElementById('no-profile').style.display = 'block';
+      if (statusContainer) statusContainer.style.display = 'none';
+      if (noProfile) noProfile.style.display = 'block';
       return;
     }
     
-    const activeChild = children.find(c => c.id === activeChildId);
-    if (!activeChild) {
-      document.getElementById('status-container').style.display = 'none';
-      document.getElementById('no-profile').style.display = 'block';
+    const activeChild = children.find(c => c && c.id === activeChildId);
+    if (!activeChild || !activeChild.name) {
+      if (statusContainer) statusContainer.style.display = 'none';
+      if (noProfile) noProfile.style.display = 'block';
       return;
     }
     
     // Update status display
-    document.getElementById('active-profile').textContent = activeChild.name;
+    if (activeProfile) {
+      activeProfile.textContent = String(activeChild.name || 'Unknown');
+    }
     
     const ageGroupLabels = {
       UNDER_10: 'Under 10',
@@ -147,20 +230,38 @@ async function loadStatus() {
       AGE_16_18: '16-18',
       AGE_18_PLUS: '18+',
     };
-    document.getElementById('age-group').textContent = ageGroupLabels[activeChild.ageGroup] || activeChild.ageGroup;
+    if (ageGroup) {
+      ageGroup.textContent = ageGroupLabels[activeChild.ageGroup] || String(activeChild.ageGroup || '-');
+    }
     
     // Count blocked attempts today
-    const today = new Date().toDateString();
-    const todayBlocked = blockedAttempts.filter(attempt => {
-      const attemptDate = new Date(attempt.timestamp).toDateString();
-      return attemptDate === today && attempt.action === 'BLOCK';
-    }).length;
-    document.getElementById('blocked-count').textContent = todayBlocked;
+    try {
+      const today = new Date().toDateString();
+      const todayBlocked = blockedAttempts.filter(attempt => {
+        if (!attempt || !attempt.timestamp) return false;
+        try {
+          const attemptDate = new Date(attempt.timestamp).toDateString();
+          return attemptDate === today && attempt.action === 'BLOCK';
+        } catch (e) {
+          return false;
+        }
+      }).length;
+      if (blockedCount) {
+        blockedCount.textContent = String(todayBlocked || 0);
+      }
+    } catch (dateError) {
+      console.error('Error processing dates:', dateError);
+      if (blockedCount) {
+        blockedCount.textContent = '0';
+      }
+    }
     
   } catch (error) {
     console.error('Error loading status:', error);
-    document.getElementById('status-container').style.display = 'none';
-    document.getElementById('no-profile').style.display = 'block';
+    const statusContainer = document.getElementById('status-container');
+    const noProfile = document.getElementById('no-profile');
+    if (statusContainer) statusContainer.style.display = 'none';
+    if (noProfile) noProfile.style.display = 'block';
   }
 }
 

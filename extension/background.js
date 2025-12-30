@@ -83,14 +83,33 @@ async function handleContentCheck(request, sender, sendResponse) {
   try {
     const { url, content, metadata } = request;
     
+    // Validate request
+    if (!url || typeof url !== 'string') {
+      sendResponse({ blocked: false, action: 'ALLOW', reason: 'Invalid URL' });
+      return;
+    }
+    
     // Get current settings
-    const result = await chrome.storage.sync.get(['children', 'activeChildId', 'sitePolicies']);
-    const children = result.children || [];
-    const activeChildId = result.activeChildId;
-    const sitePolicies = result.sitePolicies || [];
+    const result = await new Promise((resolve, reject) => {
+      try {
+        chrome.storage.sync.get(['children', 'activeChildId', 'sitePolicies'], (result) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          resolve(result);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+    
+    const children = Array.isArray(result.children) ? result.children : [];
+    const activeChildId = result.activeChildId || null;
+    const sitePolicies = Array.isArray(result.sitePolicies) ? result.sitePolicies : [];
     
     // Find active child profile
-    const activeChild = children.find(c => c.id === activeChildId);
+    const activeChild = children.find(c => c && c.id === activeChildId);
     if (!activeChild) {
       sendResponse({ blocked: false, action: 'ALLOW', reason: 'No active child profile' });
       return;
@@ -198,9 +217,28 @@ async function handleContentCheck(request, sender, sendResponse) {
 
 async function logBlockedAttempt(data) {
   try {
-    const result = await chrome.storage.sync.get(['blockedAttempts', 'auditLog']);
-    const blockedAttempts = result.blockedAttempts || [];
-    const auditLog = result.auditLog || [];
+    // Validate data
+    if (!data || !data.childId || !data.url) {
+      console.error('Invalid blocked attempt data');
+      return;
+    }
+
+    const result = await new Promise((resolve, reject) => {
+      try {
+        chrome.storage.sync.get(['blockedAttempts', 'auditLog'], (result) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          resolve(result);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    const blockedAttempts = Array.isArray(result.blockedAttempts) ? result.blockedAttempts : [];
+    const auditLog = Array.isArray(result.auditLog) ? result.auditLog : [];
     
     const newAttempt = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
@@ -225,21 +263,48 @@ async function logBlockedAttempt(data) {
     const limitedAttempts = [newAttempt, ...blockedAttempts].slice(0, 1000);
     const limitedAuditLog = [newAuditEntry, ...auditLog].slice(0, 1000);
     
-    await chrome.storage.sync.set({
-      blockedAttempts: limitedAttempts,
-      auditLog: limitedAuditLog,
+    await new Promise((resolve, reject) => {
+      try {
+        chrome.storage.sync.set({
+          blockedAttempts: limitedAttempts,
+          auditLog: limitedAuditLog,
+        }, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          resolve();
+        });
+      } catch (error) {
+        reject(error);
+      }
     });
     
     // Notify parent if notifications are enabled
-    const children = (await chrome.storage.sync.get(['children'])).children || [];
-    const child = children.find(c => c.id === data.childId);
-    if (child && child.notificationEnabled) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon48.png',
-        title: 'AgileWeb - Content Blocked',
-        message: `Blocked attempt to access: ${new URL(data.url).hostname}`,
+    try {
+      const childrenResult = await new Promise((resolve) => {
+        chrome.storage.sync.get(['children'], (result) => {
+          resolve(result);
+        });
       });
+      const children = Array.isArray(childrenResult.children) ? childrenResult.children : [];
+      const child = children.find(c => c && c.id === data.childId);
+      if (child && child.notificationEnabled) {
+        try {
+          const urlObj = new URL(data.url);
+          chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icons/icon48.png',
+            title: 'AgileWeb - Content Blocked',
+            message: `Blocked attempt to access: ${urlObj.hostname}`,
+          });
+        } catch (urlError) {
+          // Invalid URL, skip notification
+          console.error('Invalid URL for notification:', urlError);
+        }
+      }
+    } catch (notificationError) {
+      console.error('Error sending notification:', notificationError);
     }
   } catch (error) {
     console.error('Error logging blocked attempt:', error);

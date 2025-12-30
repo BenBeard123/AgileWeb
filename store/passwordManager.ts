@@ -45,52 +45,117 @@ export class PasswordManager {
 
   async getPasswordConfig(): Promise<PasswordConfig> {
     if (!this.isChromeExtension()) {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Validate structure
+          if (parsed && typeof parsed === 'object') {
+            return {
+              hasPassword: Boolean(parsed.hasPassword),
+              passwordHash: typeof parsed.passwordHash === 'string' ? parsed.passwordHash : '',
+              hint: typeof parsed.hint === 'string' ? parsed.hint : undefined,
+            };
+          }
+        }
+      } catch (error) {
+        console.error('Error reading password config from localStorage:', error);
       }
       return { hasPassword: false, passwordHash: '' };
     }
 
-    return new Promise((resolve) => {
-      chrome.storage.sync.get([STORAGE_KEY], (result) => {
-        if (result[STORAGE_KEY]) {
-          resolve(result[STORAGE_KEY]);
-        } else {
-          resolve({ hasPassword: false, passwordHash: '' });
-        }
-      });
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.storage.sync.get([STORAGE_KEY], (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('Chrome storage error:', chrome.runtime.lastError);
+            resolve({ hasPassword: false, passwordHash: '' });
+            return;
+          }
+          if (result[STORAGE_KEY] && typeof result[STORAGE_KEY] === 'object') {
+            const config = result[STORAGE_KEY];
+            resolve({
+              hasPassword: Boolean(config.hasPassword),
+              passwordHash: typeof config.passwordHash === 'string' ? config.passwordHash : '',
+              hint: typeof config.hint === 'string' ? config.hint : undefined,
+            });
+          } else {
+            resolve({ hasPassword: false, passwordHash: '' });
+          }
+        });
+      } catch (error) {
+        console.error('Error in getPasswordConfig:', error);
+        resolve({ hasPassword: false, passwordHash: '' });
+      }
     });
   }
 
   async setPassword(password: string, hint?: string): Promise<void> {
-    const passwordHash = await hashPassword(password);
-    const config: PasswordConfig = {
-      hasPassword: true,
-      passwordHash,
-      hint,
-    };
-
-    if (!this.isChromeExtension()) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-      return;
+    // Validate input
+    if (!password || typeof password !== 'string' || password.trim().length === 0) {
+      throw new Error('Password cannot be empty');
     }
 
-    return new Promise((resolve) => {
-      chrome.storage.sync.set({ [STORAGE_KEY]: config }, () => {
-        resolve();
+    if (password.length < 4) {
+      throw new Error('Password must be at least 4 characters long');
+    }
+
+    try {
+      const passwordHash = await hashPassword(password);
+      const config: PasswordConfig = {
+        hasPassword: true,
+        passwordHash,
+        hint: hint && typeof hint === 'string' ? hint.trim().slice(0, 200) : undefined,
+      };
+
+      if (!this.isChromeExtension()) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+        } catch (error) {
+          console.error('Error writing password to localStorage:', error);
+          throw new Error('Failed to save password');
+        }
+        return;
+      }
+
+      return new Promise((resolve, reject) => {
+        try {
+          chrome.storage.sync.set({ [STORAGE_KEY]: config }, () => {
+            if (chrome.runtime.lastError) {
+              console.error('Chrome storage error:', chrome.runtime.lastError);
+              reject(new Error('Failed to save password'));
+              return;
+            }
+            resolve();
+          });
+        } catch (error) {
+          console.error('Error in setPassword:', error);
+          reject(error);
+        }
       });
-    });
+    } catch (error) {
+      console.error('Error hashing password:', error);
+      throw error;
+    }
   }
 
   async verifyPassword(password: string): Promise<boolean> {
-    const config = await this.getPasswordConfig();
-    if (!config.hasPassword) {
-      return true; // No password set, allow access
+    if (!password || typeof password !== 'string') {
+      return false;
     }
 
-    const inputHash = await hashPassword(password);
-    return inputHash === config.passwordHash;
+    try {
+      const config = await this.getPasswordConfig();
+      if (!config.hasPassword || !config.passwordHash) {
+        return true; // No password set, allow access
+      }
+
+      const inputHash = await hashPassword(password);
+      return inputHash === config.passwordHash;
+    } catch (error) {
+      console.error('Error verifying password:', error);
+      return false;
+    }
   }
 
   async hasPassword(): Promise<boolean> {

@@ -288,6 +288,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       children: updatedChildren,
       auditLog: limitedAuditLog,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       children: updatedChildren,
@@ -331,6 +333,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       children: updatedChildren,
       auditLog: limitedAuditLog,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       children: updatedChildren,
@@ -416,6 +420,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       children: updatedChildren,
       auditLog: limitedAuditLog,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       children: updatedChildren,
@@ -439,6 +445,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
     await storageAdapter.update({
       children: updatedChildren,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       children: updatedChildren,
@@ -491,6 +499,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       sitePolicies: limitedSitePolicies,
       auditLog: limitedAuditLog,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       sitePolicies: limitedSitePolicies,
@@ -553,6 +563,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       sitePolicies: updatedPolicies,
       auditLog: limitedAuditLog,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       sitePolicies: updatedPolicies,
@@ -585,6 +597,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       sitePolicies: updatedPolicies,
       auditLog: limitedAuditLog,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       sitePolicies: updatedPolicies,
@@ -641,6 +655,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       blockedAttempts: limitedAttempts,
       auditLog: limitedAuditLog,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       blockedAttempts: limitedAttempts,
@@ -650,6 +666,7 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
 
   clearBlockedAttempts: async () => {
     await storageAdapter.update({ blockedAttempts: [] });
+    await storageAdapter.forceSync();
     set({ blockedAttempts: [] });
   },
 
@@ -672,6 +689,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
     await storageAdapter.update({
       auditLog: limitedAuditLog,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       auditLog: limitedAuditLog,
@@ -680,6 +699,7 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
 
   clearAuditLog: async () => {
     await storageAdapter.update({ auditLog: [] });
+    await storageAdapter.forceSync();
     set({ auditLog: [] });
   },
 }));

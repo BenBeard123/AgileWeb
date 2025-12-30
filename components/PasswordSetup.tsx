@@ -26,12 +26,17 @@ export default function PasswordSetup() {
       setIsExtension(extension);
       
       if (extension) {
-        passwordManager.hasPassword().then(setHasPassword);
+        passwordManager.hasPassword()
+          .then(setHasPassword)
+          .catch((error) => {
+            console.error('Error checking password status:', error);
+            setHasPassword(false);
+          });
       }
     };
 
     checkExtension();
-  }, []);
+  }, [passwordManager]);
 
   const handleSetPassword = async () => {
     setError('');
