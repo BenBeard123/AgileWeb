@@ -16,15 +16,44 @@ export default function CustomControlsPanel() {
 
   const handleAddControl = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedChildId || !controlValue.trim()) return;
+    
+    // Validation
+    if (!selectedChildId) {
+      alert('Please select a child');
+      return;
+    }
 
-    addCustomControl(selectedChildId, {
-      type: controlType,
-      value: controlValue.trim(),
-      action: controlAction,
-    });
+    if (!controlValue || controlValue.trim().length === 0) {
+      alert('Please enter a value');
+      return;
+    }
 
-    setControlValue('');
+    if (controlValue.trim().length > 500) {
+      alert('Value must be 500 characters or less');
+      return;
+    }
+
+    if (controlType === 'url') {
+      // Basic URL validation
+      const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
+      if (!urlPattern.test(controlValue.trim())) {
+        alert('Please enter a valid URL');
+        return;
+      }
+    }
+
+    try {
+      addCustomControl(selectedChildId, {
+        type: controlType,
+        value: controlValue.trim(),
+        action: controlAction,
+      });
+
+      setControlValue('');
+    } catch (error) {
+      console.error('Error adding control:', error);
+      alert('Failed to add control. Please try again.');
+    }
   };
 
   const getControlIcon = (type: string) => {

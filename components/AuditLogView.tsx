@@ -24,7 +24,8 @@ export default function AuditLogView() {
   const { auditLog, clearAuditLog, children } = useStore();
 
   const getChildName = (childId: string) => {
-    const child = children.find((c) => c.id === childId);
+    if (!childId || typeof childId !== 'string') return 'Unknown';
+    const child = children.find((c) => c && c.id === childId);
     return child?.name || 'Unknown';
   };
 

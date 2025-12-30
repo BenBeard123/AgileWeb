@@ -7,10 +7,19 @@ import { Shield, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 export default function Dashboard() {
   const { children, blockedAttempts } = useStore();
   
-  const recentAttempts = blockedAttempts.slice(0, 5);
-  const todayAttempts = blockedAttempts.filter(
-    (attempt) => new Date(attempt.timestamp).toDateString() === new Date().toDateString()
-  );
+  // Safety checks
+  const safeBlockedAttempts = Array.isArray(blockedAttempts) ? blockedAttempts : [];
+  const safeChildren = Array.isArray(children) ? children : [];
+  
+  const recentAttempts = safeBlockedAttempts.slice(0, 5);
+  const todayAttempts = safeBlockedAttempts.filter((attempt) => {
+    if (!attempt || !attempt.timestamp) return false;
+    try {
+      return new Date(attempt.timestamp).toDateString() === new Date().toDateString();
+    } catch {
+      return false;
+    }
+  });
 
   return (
     <div className="space-y-6">

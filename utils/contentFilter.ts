@@ -29,10 +29,19 @@ export function checkCustomControls(
   content: string,
   customControls: CustomParentControl[]
 ): { blocked: boolean; action: AccessAction | null; control: CustomParentControl | null } {
+  // Safety checks
+  if (!url || typeof url !== 'string') url = '';
+  if (!content || typeof content !== 'string') content = '';
+  if (!Array.isArray(customControls)) return { blocked: false, action: null, control: null };
+
   const lowerUrl = url.toLowerCase();
   const lowerContent = content.toLowerCase();
 
   for (const control of customControls) {
+    // Skip invalid controls
+    if (!control || !control.value || typeof control.value !== 'string') continue;
+    if (!control.action || !['BLOCK', 'GATE', 'ALLOW'].includes(control.action)) continue;
+    
     const lowerValue = control.value.toLowerCase();
 
     switch (control.type) {
@@ -80,7 +89,14 @@ export function analyzeContent(
   text: string,
   metadata?: { title?: string; description?: string }
 ): { categoryId: string; contentTypeId: string } | null {
-  const lowerText = (text + ' ' + (metadata?.title || '') + ' ' + (metadata?.description || '')).toLowerCase();
+  // Safety checks
+  if (!url || typeof url !== 'string') url = '';
+  if (!text || typeof text !== 'string') text = '';
+  
+  const safeTitle = metadata?.title && typeof metadata.title === 'string' ? metadata.title : '';
+  const safeDescription = metadata?.description && typeof metadata.description === 'string' ? metadata.description : '';
+  
+  const lowerText = (text + ' ' + safeTitle + ' ' + safeDescription).toLowerCase();
   const lowerUrl = url.toLowerCase();
 
   // This is a simplified rule-based approach
@@ -162,15 +178,40 @@ export function shouldBlockContent(
   contentTypeId: string | null;
   reason: string;
 } {
-  // Check custom controls first (they take precedence)
-  const customCheck = checkCustomControls(url, content, customControls);
-  if (customCheck.blocked || customCheck.action) {
+  // Input validation
+  if (!url || typeof url !== 'string') {
     return {
-      blocked: customCheck.action === 'Block',
-      action: customCheck.action || 'Block',
+      blocked: false,
+      action: 'ALLOW',
       categoryId: null,
       contentTypeId: null,
-      reason: `Custom control: ${customCheck.control?.type} - ${customCheck.control?.value}`,
+      reason: 'Invalid URL provided',
+    };
+  }
+
+  if (!ageGroup || !['UNDER_10', 'AGE_10_13', 'AGE_13_16', 'AGE_16_18', 'AGE_18_PLUS'].includes(ageGroup)) {
+    return {
+      blocked: false,
+      action: 'ALLOW',
+      categoryId: null,
+      contentTypeId: null,
+      reason: 'Invalid age group provided',
+    };
+  }
+
+  if (!Array.isArray(customControls)) {
+    customControls = [];
+  }
+
+  // Check custom controls first (they take precedence)
+  const customCheck = checkCustomControls(url, content || '', customControls);
+  if (customCheck.blocked || customCheck.action) {
+    return {
+      blocked: customCheck.action === 'BLOCK',
+      action: customCheck.action || 'BLOCK',
+      categoryId: null,
+      contentTypeId: null,
+      reason: `Custom control: ${customCheck.control?.type || 'unknown'} - ${customCheck.control?.value || 'unknown'}`,
     };
   }
 

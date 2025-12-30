@@ -24,17 +24,32 @@ export const useStore = create<AgileWebStore>((set) => ({
   auditLog: [],
   
   addChild: (child) => {
+    // Validation
+    if (!child || !child.name || typeof child.name !== 'string' || child.name.trim().length === 0) {
+      console.error('Invalid child data: name is required');
+      return;
+    }
+
+    if (!child.ageGroup || !['UNDER_10', 'AGE_10_13', 'AGE_13_16', 'AGE_16_18', 'AGE_18_PLUS'].includes(child.ageGroup)) {
+      console.error('Invalid child data: ageGroup is required and must be valid');
+      return;
+    }
+
     const newChild: ChildProfile = {
       ...child,
-      id: Date.now().toString(),
-      categoryOverrides: child.categoryOverrides || [],
-      customControls: child.customControls || [],
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // More unique ID
+      name: child.name.trim().slice(0, 100), // Sanitize name
+      categoryOverrides: Array.isArray(child.categoryOverrides) ? child.categoryOverrides : [],
+      customControls: Array.isArray(child.customControls) ? child.customControls : [],
+      notificationEnabled: typeof child.notificationEnabled === 'boolean' ? child.notificationEnabled : true,
+      defaultGateMode: child.defaultGateMode || 'warning',
     };
+    
     set((state) => ({
       children: [...state.children, newChild],
       auditLog: [
         {
-          id: Date.now().toString(),
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           childId: newChild.id,
           timestamp: new Date(),
           type: 'rule_change',
@@ -46,24 +61,65 @@ export const useStore = create<AgileWebStore>((set) => ({
   },
   
   updateChild: (id, updates) => {
+    if (!id || typeof id !== 'string') {
+      console.error('Invalid child ID provided');
+      return;
+    }
+
     set((state) => {
       const child = state.children.find((c) => c.id === id);
+      if (!child) {
+        console.warn(`Child with ID ${id} not found`);
+        return state;
+      }
+
+      // Validate and sanitize updates
+      const sanitizedUpdates: Partial<ChildProfile> = {};
+      if (updates.name !== undefined) {
+        if (typeof updates.name === 'string' && updates.name.trim().length > 0) {
+          sanitizedUpdates.name = updates.name.trim().slice(0, 100);
+        } else {
+          console.error('Invalid name update');
+          return state;
+        }
+      }
+      if (updates.ageGroup !== undefined) {
+        if (['UNDER_10', 'AGE_10_13', 'AGE_13_16', 'AGE_16_18', 'AGE_18_PLUS'].includes(updates.ageGroup)) {
+          sanitizedUpdates.ageGroup = updates.ageGroup;
+        } else {
+          console.error('Invalid ageGroup update');
+          return state;
+        }
+      }
+      if (updates.notificationEnabled !== undefined) {
+        sanitizedUpdates.notificationEnabled = Boolean(updates.notificationEnabled);
+      }
+      if (updates.defaultGateMode !== undefined) {
+        if (['warning', 'delay', 'parent_approval'].includes(updates.defaultGateMode)) {
+          sanitizedUpdates.defaultGateMode = updates.defaultGateMode;
+        }
+      }
+      if (updates.categoryOverrides !== undefined) {
+        sanitizedUpdates.categoryOverrides = Array.isArray(updates.categoryOverrides) ? updates.categoryOverrides : child.categoryOverrides;
+      }
+      if (updates.customControls !== undefined) {
+        sanitizedUpdates.customControls = Array.isArray(updates.customControls) ? updates.customControls : child.customControls;
+      }
+
       return {
         children: state.children.map((child) =>
-          child.id === id ? { ...child, ...updates } : child
+          child.id === id ? { ...child, ...sanitizedUpdates } : child
         ),
-        auditLog: child
-          ? [
-              {
-                id: Date.now().toString(),
-                childId: id,
-                timestamp: new Date(),
-                type: 'rule_change',
-                details: { ruleChange: `Updated profile for ${child.name}` },
-              },
-              ...state.auditLog,
-            ]
-          : state.auditLog,
+        auditLog: [
+          {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            childId: id,
+            timestamp: new Date(),
+            type: 'rule_change',
+            details: { ruleChange: `Updated profile for ${child.name}` },
+          },
+          ...state.auditLog,
+        ],
       };
     });
   },
@@ -75,34 +131,75 @@ export const useStore = create<AgileWebStore>((set) => ({
   },
   
   addCustomControl: (childId, control) => {
+    // Validation
+    if (!childId || typeof childId !== 'string') {
+      console.error('Invalid childId provided');
+      return;
+    }
+
+    if (!control || !control.type || !['interest', 'url', 'keyword'].includes(control.type)) {
+      console.error('Invalid control type');
+      return;
+    }
+
+    if (!control.value || typeof control.value !== 'string' || control.value.trim().length === 0) {
+      console.error('Invalid control value');
+      return;
+    }
+
+    if (!control.action || !['BLOCK', 'GATE', 'ALLOW'].includes(control.action)) {
+      console.error('Invalid control action');
+      return;
+    }
+
+    const sanitizedValue = control.value.trim().slice(0, 500);
     const newControl: CustomParentControl = {
       ...control,
-      id: Date.now().toString(),
+      value: sanitizedValue,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       childId,
     };
-    set((state) => ({
-      children: state.children.map((child) =>
-        child.id === childId
-          ? {
-              ...child,
-              customControls: [...child.customControls, newControl],
-            }
-          : child
-      ),
-      auditLog: [
-        {
-          id: Date.now().toString(),
-          childId,
-          timestamp: new Date(),
-          type: 'custom_control',
-          details: {
-            action: control.action,
-            ruleChange: `Added ${control.type} control: ${control.value}`,
+
+    set((state) => {
+      const child = state.children.find((c) => c.id === childId);
+      if (!child) {
+        console.warn(`Child with ID ${childId} not found`);
+        return state;
+      }
+
+      // Check for duplicates
+      const isDuplicate = child.customControls.some(
+        (c) => c.type === control.type && c.value.toLowerCase() === sanitizedValue.toLowerCase()
+      );
+      if (isDuplicate) {
+        console.warn('Duplicate control detected');
+        return state;
+      }
+
+      return {
+        children: state.children.map((child) =>
+          child.id === childId
+            ? {
+                ...child,
+                customControls: [...child.customControls, newControl],
+              }
+            : child
+        ),
+        auditLog: [
+          {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            childId,
+            timestamp: new Date(),
+            type: 'custom_control',
+            details: {
+              action: control.action,
+              ruleChange: `Added ${control.type} control: ${sanitizedValue}`,
+            },
           },
-        },
-        ...state.auditLog,
-      ],
-    }));
+          ...state.auditLog,
+        ],
+      };
+    });
   },
   
   removeCustomControl: (childId, controlId) => {
@@ -185,29 +282,56 @@ export const useStore = create<AgileWebStore>((set) => ({
   },
   
   addBlockedAttempt: (attempt) => {
+    // Validation
+    if (!attempt || !attempt.childId || typeof attempt.childId !== 'string') {
+      console.error('Invalid attempt: childId is required');
+      return;
+    }
+
+    if (!attempt.url || typeof attempt.url !== 'string') {
+      console.error('Invalid attempt: url is required');
+      return;
+    }
+
+    if (!attempt.action || !['BLOCK', 'GATE', 'ALLOW'].includes(attempt.action)) {
+      console.error('Invalid attempt: action is required and must be valid');
+      return;
+    }
+
+    const sanitizedUrl = attempt.url.trim().slice(0, 2000);
     const newAttempt: BlockedAttempt = {
       ...attempt,
-      id: Date.now().toString(),
+      url: sanitizedUrl,
+      category: attempt.category || 'unknown',
+      contentType: attempt.contentType || 'unknown',
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       timestamp: new Date(),
     };
-    set((state) => ({
-      blockedAttempts: [newAttempt, ...state.blockedAttempts],
-      auditLog: [
-        {
-          id: Date.now().toString(),
-          childId: attempt.childId,
-          timestamp: new Date(),
-          type: 'blocked_attempt',
-          details: {
-            url: attempt.url,
-            category: attempt.category,
-            contentType: attempt.contentType,
-            action: attempt.action,
+
+    set((state) => {
+      // Limit blocked attempts to prevent memory issues (keep last 1000)
+      const limitedAttempts = state.blockedAttempts.slice(0, 999);
+      const limitedAuditLog = state.auditLog.slice(0, 999);
+
+      return {
+        blockedAttempts: [newAttempt, ...limitedAttempts],
+        auditLog: [
+          {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            childId: attempt.childId,
+            timestamp: new Date(),
+            type: 'blocked_attempt',
+            details: {
+              url: sanitizedUrl,
+              category: attempt.category || 'unknown',
+              contentType: attempt.contentType || 'unknown',
+              action: attempt.action,
+            },
           },
-        },
-        ...state.auditLog,
-      ],
-    }));
+          ...limitedAuditLog,
+        ],
+      };
+    });
   },
   
   clearBlockedAttempts: () => {

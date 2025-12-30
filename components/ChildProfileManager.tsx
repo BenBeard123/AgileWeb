@@ -27,21 +27,38 @@ export default function ChildProfileManager() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      updateChild(editingId, formData);
-      setEditingId(null);
-    } else {
-      addChild(formData);
+    
+    // Validation
+    if (!formData.name || formData.name.trim().length === 0) {
+      alert('Please enter a child name');
+      return;
     }
-    setFormData({ 
-      name: '', 
-      ageGroup: 'UNDER_10', 
-      notificationEnabled: true,
-      defaultGateMode: 'warning',
-      categoryOverrides: [],
-      customControls: [],
-    });
-    setIsAdding(false);
+
+    if (formData.name.trim().length > 100) {
+      alert('Name must be 100 characters or less');
+      return;
+    }
+
+    try {
+      if (editingId) {
+        updateChild(editingId, formData);
+        setEditingId(null);
+      } else {
+        addChild(formData);
+      }
+      setFormData({ 
+        name: '', 
+        ageGroup: 'UNDER_10', 
+        notificationEnabled: true,
+        defaultGateMode: 'warning',
+        categoryOverrides: [],
+        customControls: [],
+      });
+      setIsAdding(false);
+    } catch (error) {
+      console.error('Error saving child:', error);
+      alert('Failed to save child. Please try again.');
+    }
   };
 
   const handleEdit = (child: typeof children[0]) => {
