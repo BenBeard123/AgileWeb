@@ -97,6 +97,239 @@ pnpm dev
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## How It Works
+
+AgileWeb is a web-based parental control dashboard that uses a multi-layered content filtering system to protect children online. Here's how it works:
+
+### Architecture Overview
+
+AgileWeb consists of three main components:
+
+1. **Parent Dashboard (Web App)**: A Next.js web application where parents configure profiles, set rules, and monitor activity
+2. **Content Filtering Engine**: A rule-based classification system that analyzes URLs and content
+3. **API Layer**: RESTful endpoints that can be integrated with browser extensions or other applications
+
+### Content Filtering Workflow
+
+When a child attempts to access content, AgileWeb follows this decision tree (in priority order):
+
+```
+1. Adult Site Blocklist Check (Highest Priority)
+   ↓ If blocked → BLOCK immediately
+   ↓ If not blocked → Continue
+
+2. Site/App Policy Check (V2)
+   ↓ If policy exists → Apply policy action
+   ↓ If no policy → Continue
+
+3. Custom Parent Controls Check
+   ↓ If custom control matches → Apply control action
+   ↓ If no match → Continue
+
+4. Content Analysis
+   ↓ Analyze URL, text, and metadata
+   ↓ Detect category (violence, sexual, substances, etc.)
+   ↓ Determine content type (graphic violence, sexual education, etc.)
+   ↓ Continue
+
+5. V2 Enhanced Analysis (if enabled)
+   ↓ Context analysis (educational vs promotional)
+   ↓ Slang detection
+   ↓ Self-harm detection
+   ↓ Cyberbullying detection
+   ↓ AI content detection
+   ↓ Calculate confidence score
+   ↓ Continue
+
+6. Age-Based Rule Application
+   ↓ Look up rule for: [Category] + [Content Type] + [Age Group]
+   ↓ Get action: BLOCK, GATE, or ALLOW
+   ↓ Adjust based on context (if V2 enabled)
+   ↓ Apply conservative behavior (low confidence → GATE)
+
+7. Final Decision
+   ↓ Return action with reasoning
+   ↓ Log attempt in audit log
+   ↓ Send notification to parent (if enabled)
+```
+
+### Content Analysis Process
+
+#### Step 1: URL and Metadata Extraction
+- Extract the URL, page title, and description
+- Identify domain and URL patterns
+- Check against known site patterns (short-form videos, live streams, etc.)
+
+#### Step 2: Text Analysis
+- Analyze page content, title, and description
+- Detect keywords related to restricted categories
+- Identify slang terms and coded language (V2)
+- Check for self-harm indicators (V2)
+- Detect cyberbullying patterns (V2)
+- Identify AI-generated content markers (V2)
+
+#### Step 3: Category Classification
+The system classifies content into one of 8 categories:
+- **Violence & Disturbing Content**: Detects violence keywords, horror terms, crime references
+- **Sexual & Body-Related Content**: Identifies explicit content, sexual education, body modification
+- **Substances & Addictive Behavior**: Detects drug/alcohol references, gambling content
+- **Financial & Commercial Content**: Identifies crypto, get-rich-quick schemes, influencer advice
+- **Media & Platform-Native Risks**: Detects short-form videos, live streams, AI content
+- **Social & Cultural Topics**: Identifies LGBTQ+, religious, political content
+- **Weapons & Extremism**: Detects weapons references, extremist content
+- **Unknown/Unclassified**: Content that doesn't match any category (defaults to ALLOW)
+
+#### Step 4: Context Analysis (V2)
+For each classified piece of content, the system determines context:
+- **Educational**: Medical/educational content (e.g., sexual education)
+- **Promotional**: Marketing/advertising content
+- **Glorification**: Content that glorifies harmful behavior
+- **Discussion**: Neutral discussion of topics
+- **Instruction**: How-to or instructional content
+- **News**: News reporting
+- **Historical**: Historical content
+- **Recruitment**: Recruitment/propaganda content
+- **Help-seeking**: Content seeking help (e.g., suicide prevention)
+
+#### Step 5: Confidence Scoring (V2)
+The system calculates a confidence score (0-1) based on:
+- Number of matching keywords
+- Context indicators
+- Slang detection matches
+- Pattern recognition strength
+- Metadata quality
+
+#### Step 6: Rule Application
+1. Look up the content category and type in the policy matrix
+2. Find the rule for the child's age group
+3. Get the default action (BLOCK, GATE, or ALLOW)
+4. Adjust based on context:
+   - Educational content: BLOCK → GATE
+   - Help-seeking content: BLOCK → ALLOW (for older ages)
+   - Low confidence: BLOCK → GATE (conservative behavior)
+5. Apply any category overrides set by the parent
+6. Return final action
+
+### Data Flow
+
+```
+┌─────────────────┐
+│  Parent Config  │
+│  (Dashboard)    │
+└────────┬────────┘
+         │
+         │ Creates/Updates
+         ↓
+┌─────────────────┐
+│  Zustand Store  │
+│  (State Mgmt)    │
+└────────┬────────┘
+         │
+         │ Stores
+         ↓
+┌─────────────────┐
+│  Child Profiles │
+│  Custom Controls│
+│  Site Policies  │
+└────────┬────────┘
+         │
+         │ Used by
+         ↓
+┌─────────────────┐
+│ Content Filter  │
+│    Engine       │
+└────────┬────────┘
+         │
+         │ Analyzes
+         ↓
+┌─────────────────┐
+│  URL + Content  │
+│   + Metadata    │
+└────────┬────────┘
+         │
+         │ Returns
+         ↓
+┌─────────────────┐
+│  Action Decision│
+│  (BLOCK/GATE/   │
+│   ALLOW)        │
+└────────┬────────┘
+         │
+         │ Logs
+         ↓
+┌─────────────────┐
+│  Audit Log      │
+│  Blocked Attempts│
+└─────────────────┘
+```
+
+### Integration Points
+
+#### Browser Extension (Future)
+A browser extension would:
+1. Intercept navigation requests
+2. Send URL + page content to `/api/filter`
+3. Receive action decision
+4. Block page, show gate screen, or allow access
+5. Send notifications to parent dashboard
+
+#### API Usage
+```javascript
+POST /api/filter
+{
+  "url": "https://example.com",
+  "content": "Page content...",
+  "ageGroup": "AGE_10_13",
+  "customControls": [...],
+  "sitePolicies": [...],  // V2
+  "useV2": true,           // Enable V2 features
+  "metadata": {
+    "title": "Page Title",
+    "description": "Page description"
+  }
+}
+
+Response:
+{
+  "blocked": true,
+  "action": "BLOCK",
+  "categoryId": "sexual",
+  "contentTypeId": "explicit-sexual",
+  "contextLabel": "promotional",  // V2
+  "confidence": 0.95,             // V2
+  "reason": "Blocked adult site: pornhub.com"
+}
+```
+
+### State Management
+
+AgileWeb uses **Zustand** for state management, storing:
+- **Children**: Array of child profiles with age groups and settings
+- **Blocked Attempts**: History of blocked/gated content access
+- **Audit Log**: Complete history of all actions and changes
+- **Site Policies**: Per-site/app policies (V2)
+- **Custom Controls**: Parent-defined URL/keyword/interest blocks
+
+All state is stored in memory (localStorage persistence can be added for production).
+
+### Safety Features
+
+1. **Input Validation**: All user inputs are validated and sanitized
+2. **Error Boundaries**: React error boundaries catch and handle errors gracefully
+3. **Type Safety**: Full TypeScript coverage prevents runtime errors
+4. **Conservative Defaults**: Low confidence defaults to GATE, not BLOCK
+5. **Memory Limits**: Arrays are limited to prevent memory issues (1000 attempts, 100 controls)
+6. **Unique IDs**: Timestamp + random string ensures unique identifiers
+
+### Priority Order Summary
+
+1. **Adult Site Blocklist** (Cannot be overridden)
+2. **Site/App Policies** (V2, per-site rules)
+3. **Custom Parent Controls** (URL/keyword/interest blocks)
+4. **Content Category Rules** (Age-based matrix)
+5. **Context Adjustments** (V2, educational → GATE)
+6. **Conservative Behavior** (Low confidence → GATE)
+
 ## Project Structure
 
 ```
