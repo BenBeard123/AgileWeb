@@ -9,11 +9,12 @@ import BlockedAttemptsView from '@/components/BlockedAttemptsView';
 import AuditLogView from '@/components/AuditLogView';
 import SitePolicyManager from '@/components/SitePolicyManager';
 import ExtensionStatus from '@/components/ExtensionStatus';
+import PasswordSetup from '@/components/PasswordSetup';
 import { StoreProvider } from '@/components/StoreProvider';
-import { Shield, Users, Settings, AlertTriangle, Filter, FileText, Globe } from 'lucide-react';
+import { Shield, Users, Settings, AlertTriangle, Filter, FileText, Globe, Lock } from 'lucide-react';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'children' | 'categories' | 'controls' | 'attempts' | 'audit' | 'policies'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'children' | 'categories' | 'controls' | 'attempts' | 'audit' | 'policies' | 'password'>('dashboard');
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: Shield },
@@ -23,6 +24,7 @@ export default function Home() {
     { id: 'policies', label: 'Site Policies (V2)', icon: Globe },
     { id: 'attempts', label: 'Blocked Attempts', icon: AlertTriangle },
     { id: 'audit', label: 'Audit Log', icon: FileText },
+    { id: 'password', label: 'Parental Code', icon: Lock },
   ];
 
   return (
@@ -75,6 +77,7 @@ export default function Home() {
           {activeTab === 'policies' && <SitePolicyManager />}
           {activeTab === 'attempts' && <BlockedAttemptsView />}
           {activeTab === 'audit' && <AuditLogView />}
+          {activeTab === 'password' && <PasswordSetup />}
         </main>
       </div>
     </StoreProvider>

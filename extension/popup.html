@@ -112,30 +112,51 @@
   </div>
   
   <div class="content">
-    <div id="status-container">
+    <!-- Password Protection Screen -->
+    <div id="password-screen" style="display: none;">
       <div class="status">
-        <div class="status-item">
-          <span class="status-label">Active Profile:</span>
-          <span class="status-value" id="active-profile">Loading...</span>
+        <h3 style="margin-bottom: 1rem; color: #111827;">🔒 Parental Control</h3>
+        <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 1rem;">
+          Enter parental control code to access extension settings.
+        </p>
+        <input 
+          type="password" 
+          id="password-input" 
+          placeholder="Enter code"
+          style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 1rem; font-size: 0.875rem;"
+        />
+        <button class="button" id="verify-password">Verify</button>
+        <p id="password-error" style="color: #dc2626; font-size: 0.75rem; margin-top: 0.5rem; display: none;">Incorrect code. Please try again.</p>
+      </div>
+    </div>
+
+    <!-- Main Content (shown after password verification) -->
+    <div id="main-content">
+      <div id="status-container">
+        <div class="status">
+          <div class="status-item">
+            <span class="status-label">Active Profile:</span>
+            <span class="status-value" id="active-profile">Loading...</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Age Group:</span>
+            <span class="status-value" id="age-group">-</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Blocked Today:</span>
+            <span class="status-value" id="blocked-count">0</span>
+          </div>
         </div>
-        <div class="status-item">
-          <span class="status-label">Age Group:</span>
-          <span class="status-value" id="age-group">-</span>
-        </div>
-        <div class="status-item">
-          <span class="status-label">Blocked Today:</span>
-          <span class="status-value" id="blocked-count">0</span>
-        </div>
+        
+        <button class="button" id="open-dashboard">Open Dashboard</button>
+        <button class="button button-secondary" id="open-settings">Extension Settings</button>
       </div>
       
-      <button class="button" id="open-dashboard">Open Dashboard</button>
-      <button class="button button-secondary" id="open-settings">Extension Settings</button>
-    </div>
-    
-    <div id="no-profile" class="no-profile" style="display: none;">
-      <p>No active child profile found.</p>
-      <p>Please set up a profile in the dashboard.</p>
-      <button class="button" id="setup-profile">Set Up Profile</button>
+      <div id="no-profile" class="no-profile" style="display: none;">
+        <p>No active child profile found.</p>
+        <p>Please set up a profile in the dashboard.</p>
+        <button class="button" id="setup-profile">Set Up Profile</button>
+      </div>
     </div>
   </div>
   

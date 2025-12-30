@@ -9,7 +9,9 @@
     "webRequest",
     "webNavigation",
     "activeTab",
-    "scripting"
+    "scripting",
+    "management",
+    "notifications"
   ],
   "host_permissions": [
     "<all_urls>"

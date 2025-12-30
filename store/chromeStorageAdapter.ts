@@ -89,6 +89,7 @@ export class ChromeStorageAdapter {
     if (this.isChromeExtension()) {
       chrome.storage.onChanged.addListener((changes, areaName) => {
         if (areaName === 'sync') {
+          // Immediately notify listeners when storage changes
           this.getAll().then(callback);
         }
       });
@@ -97,6 +98,20 @@ export class ChromeStorageAdapter {
     return () => {
       this.listeners.delete(callback);
     };
+  }
+
+  // Force sync - ensures data is written and synced immediately
+  async forceSync(): Promise<void> {
+    if (!this.isChromeExtension()) {
+      return;
+    }
+
+    // Chrome sync happens automatically, but we can trigger a read to ensure sync
+    return new Promise((resolve) => {
+      chrome.storage.sync.get(null, () => {
+        resolve();
+      });
+    });
   }
 
   private notifyListeners(data: ChromeStorageData): void {

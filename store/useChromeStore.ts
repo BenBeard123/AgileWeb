@@ -61,6 +61,7 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
 
   setActiveChild: async (id: string | null) => {
     await storageAdapter.update({ activeChildId: id });
+    await storageAdapter.forceSync();
     set({ activeChildId: id });
   },
 
@@ -106,6 +107,9 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       children: limitedChildren,
       auditLog: limitedAuditLog,
     });
+    
+    // Force sync to ensure extension gets updates immediately
+    await storageAdapter.forceSync();
 
     set({
       children: limitedChildren,
@@ -197,6 +201,8 @@ export const useChromeStore = create<AgileWebStore>((set, get) => ({
       children: updatedChildren,
       activeChildId: newActiveChildId,
     });
+    
+    await storageAdapter.forceSync();
 
     set({
       children: updatedChildren,

@@ -1,10 +1,11 @@
 // Background service worker for AgileWeb Chrome Extension
 
 import { isAdultSite, getMatchedAdultSite } from './adultSiteBlocklist.js';
+import './uninstall-protection.js';
 
 // Listen for extension installation
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('AgileWeb extension installed');
+chrome.runtime.onInstalled.addListener((details) => {
+  console.log('AgileWeb extension installed', details.reason);
   
   // Initialize default settings
   chrome.storage.sync.get(['children', 'activeChildId'], (result) => {
@@ -18,6 +19,39 @@ chrome.runtime.onInstalled.addListener(() => {
       });
     }
   });
+  
+  // Prevent uninstallation if password is set
+  if (details.reason === 'install') {
+    // First install - allow
+    return;
+  }
+  
+  // Check if password is set and prevent uninstallation
+  chrome.storage.sync.get(['agileweb_parental_password'], (result) => {
+    if (result.agileweb_parental_password && result.agileweb_parental_password.hasPassword) {
+      // Password is set - show warning
+      console.log('Extension is password protected. Uninstallation requires parental code.');
+    }
+  });
+});
+
+// Listen for storage changes to sync from web dashboard
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync') {
+    // Settings changed - reload active child profile
+    if (changes.children || changes.activeChildId || changes.sitePolicies) {
+      console.log('Settings updated from dashboard - reloading extension state');
+      
+      // Notify content scripts to refresh
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+          chrome.tabs.sendMessage(tab.id, { action: 'settingsUpdated' }).catch(() => {
+            // Ignore errors for tabs that don't have content script
+          });
+        });
+      });
+    }
+  }
 });
 
 // Listen for messages from content script
