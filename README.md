@@ -1,3 +1,89 @@
+# AgileWeb
+
+**Age-Appropriate Content Filtering for Child Safety**
+
+AgileWeb is a comprehensive content filtering system that helps parents manage age-appropriate access to websites and content. It includes both a web dashboard for configuration and a Chrome extension for real-time content filtering.
+
+## Features
+
+- 🛡️ **Chrome Extension**: Real-time content filtering as you browse
+- 🌐 **Web Dashboard**: Comprehensive configuration interface
+- 👶 **Age-Based Filtering**: 5 age groups with tailored rules
+- 🎯 **Custom Controls**: Block specific URLs, keywords, or interests
+- 📊 **Site Policies**: Per-site or per-domain policies
+- 📝 **Audit Logging**: Track all blocked attempts and rule changes
+- 🔔 **Parent Notifications**: Get notified when content is blocked
+- 🚫 **Adult Site Blocklist**: Automatic blocking of known adult sites
+
+## Quick Start
+
+### 1. Install the Chrome Extension
+
+1. Start the web dashboard:
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+2. Load the extension in Chrome:
+   - Go to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select the `extension` folder
+
+3. Open the dashboard at `http://localhost:3000`
+
+4. Create a child profile and set it as active
+
+### 2. Configure Settings
+
+Use the web dashboard to:
+- Create child profiles with age groups
+- Set custom controls (URLs, keywords, interests)
+- Configure site policies
+- Review blocked attempts and audit logs
+
+### 3. Start Filtering
+
+The extension automatically:
+- Blocks adult sites
+- Filters content based on age group
+- Applies custom controls
+- Enforces site policies
+- Logs all blocked attempts
+
+## Project Structure
+
+```
+AgileWeb/
+├── app/                    # Next.js app (web dashboard)
+├── components/             # React components
+├── extension/             # Chrome extension files
+│   ├── manifest.json      # Extension manifest
+│   ├── background.js     # Service worker
+│   ├── content.js         # Content script
+│   ├── popup.html/js      # Extension popup
+│   └── blocked.html       # Blocked page
+├── store/                 # State management
+│   ├── useStore.ts        # Web app store
+│   ├── useChromeStore.ts  # Extension store
+│   └── chromeStorageAdapter.ts
+├── utils/                 # Filtering utilities
+└── data/                  # Content categories & blocklists
+```
+
+## Extension vs Web App
+
+- **Web Dashboard**: Full-featured configuration interface accessible at `http://localhost:3000`
+- **Chrome Extension**: Real-time content filtering that works as you browse
+- **Storage Sync**: Settings sync between extension and dashboard via Chrome storage
+
+## Documentation
+
+- [Extension Installation Guide](./extension/INSTALL.md)
+- [V2 Features](./V2_FEATURES.md)
+- [Extension README](./extension/README.md)
+
 # AgileWeb - Age-Appropriate Access for Your Growing Child
 
 **One-line framing:** AgileWeb applies age-appropriate access controls across content categories, balancing protection, context, and parental choice.
