@@ -1,0 +1,22 @@
+{
+  "name": "AgileWeb - Age-Appropriate Access Control",
+  "short_name": "AgileWeb",
+  "description": "Helps increase child safety on different websites by filtering content by age group",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["parenting", "safety", "education"],
+  "lang": "en-US",
+  "dir": "ltr"
+}
+
