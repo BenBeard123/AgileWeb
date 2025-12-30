@@ -99,11 +99,22 @@ export interface BlockedAttempt {
   parentAction?: 'approved_once' | 'approved_24h' | 'always_allow' | 'blocked';
 }
 
+export interface SitePolicy {
+  id: string;
+  sitePattern: string; // URL pattern or app identifier
+  type: 'url' | 'app' | 'domain';
+  ageGroup: AgeGroup;
+  action: AccessAction;
+  gateMode?: GateMode;
+  notes?: string;
+  childId?: string; // Optional: if set, applies only to this child
+}
+
 export interface AuditLogEntry {
   id: string;
   childId: string;
   timestamp: Date;
-  type: 'blocked_attempt' | 'approval' | 'override' | 'rule_change' | 'custom_control';
+  type: 'blocked_attempt' | 'approval' | 'override' | 'rule_change' | 'custom_control' | 'site_policy';
   details: {
     url?: string;
     category?: string;

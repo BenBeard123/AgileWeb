@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { shouldBlockContent } from '@/utils/contentFilter';
-import { AgeGroup, CustomParentControl } from '@/types';
+import { shouldBlockContentEnhanced } from '@/utils/enhancedContentFilter';
+import { AgeGroup, CustomParentControl, SitePolicy } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { url, content, ageGroup, customControls, metadata } = body;
+    const { url, content, ageGroup, customControls, sitePolicies, metadata, useV2 } = body;
 
     // Validate required fields
     if (!url || typeof url !== 'string' || url.trim().length === 0) {
@@ -88,7 +89,51 @@ export async function POST(request: NextRequest) {
     const sanitizedUrl = url.trim().slice(0, 2000);
     const sanitizedContent = typeof content === 'string' ? content.slice(0, 10000) : '';
 
-    // Filter content
+    // Validate and sanitize site policies if provided (V2)
+    let safeSitePolicies: SitePolicy[] | undefined;
+    if (useV2 && sitePolicies) {
+      if (!Array.isArray(sitePolicies)) {
+        return NextResponse.json(
+          { error: 'sitePolicies must be an array' },
+          { status: 400 }
+        );
+      }
+      safeSitePolicies = sitePolicies.filter((policy: any) => {
+        return (
+          policy &&
+          typeof policy === 'object' &&
+          typeof policy.sitePattern === 'string' &&
+          ['url', 'app', 'domain'].includes(policy.type) &&
+          ['UNDER_10', 'AGE_10_13', 'AGE_13_16', 'AGE_16_18', 'AGE_18_PLUS'].includes(policy.ageGroup) &&
+          ['BLOCK', 'GATE', 'ALLOW'].includes(policy.action)
+        );
+      }).slice(0, 100); // Limit to 100 policies
+    }
+
+    // Use V2 enhanced filtering if requested
+    if (useV2) {
+      const result = shouldBlockContentEnhanced(
+        sanitizedUrl,
+        sanitizedContent,
+        ageGroup,
+        controls,
+        safeSitePolicies,
+        safeMetadata
+      );
+
+      return NextResponse.json({
+        blocked: result.blocked,
+        action: result.action,
+        categoryId: result.categoryId,
+        contentTypeId: result.contentTypeId,
+        contextLabel: result.contextLabel,
+        confidence: result.confidence,
+        reason: result.reason,
+        enhanced: true,
+      });
+    }
+
+    // Default: use V1 filtering
     const result = shouldBlockContent(
       sanitizedUrl,
       sanitizedContent,
@@ -103,6 +148,7 @@ export async function POST(request: NextRequest) {
       categoryId: result.categoryId,
       contentTypeId: result.contentTypeId,
       reason: result.reason,
+      enhanced: false,
     });
   } catch (error) {
     console.error('Error filtering content:', error);

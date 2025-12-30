@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { ChildProfile, CustomParentControl, BlockedAttempt, CategoryOverride, AuditLogEntry, GateMode } from '@/types';
+import { ChildProfile, CustomParentControl, BlockedAttempt, CategoryOverride, AuditLogEntry, GateMode, SitePolicy } from '@/types';
 
 interface AgileWebStore {
   children: ChildProfile[];
   blockedAttempts: BlockedAttempt[];
   auditLog: AuditLogEntry[];
+  sitePolicies: SitePolicy[]; // V2: Per-app/per-site policies
   addChild: (child: Omit<ChildProfile, 'id'>) => void;
   updateChild: (id: string, updates: Partial<ChildProfile>) => void;
   deleteChild: (id: string) => void;
@@ -12,6 +13,9 @@ interface AgileWebStore {
   removeCustomControl: (childId: string, controlId: string) => void;
   addCategoryOverride: (childId: string, override: Omit<CategoryOverride, 'id'>) => void;
   removeCategoryOverride: (childId: string, overrideId: string) => void;
+  addSitePolicy: (policy: Omit<SitePolicy, 'id'>) => void; // V2
+  updateSitePolicy: (id: string, updates: Partial<SitePolicy>) => void; // V2
+  removeSitePolicy: (id: string) => void; // V2
   addBlockedAttempt: (attempt: Omit<BlockedAttempt, 'id' | 'timestamp'>) => void;
   clearBlockedAttempts: () => void;
   addAuditLogEntry: (entry: Omit<AuditLogEntry, 'id' | 'timestamp'>) => void;
@@ -22,6 +26,7 @@ export const useStore = create<AgileWebStore>((set) => ({
   children: [],
   blockedAttempts: [],
   auditLog: [],
+  sitePolicies: [], // V2
   
   addChild: (child) => {
     // Validation
@@ -351,6 +356,126 @@ export const useStore = create<AgileWebStore>((set) => ({
   
   clearAuditLog: () => {
     set({ auditLog: [] });
+  },
+
+  // V2: Site policy management
+  addSitePolicy: (policy) => {
+    // Validation
+    if (!policy || !policy.sitePattern || typeof policy.sitePattern !== 'string' || policy.sitePattern.trim().length === 0) {
+      console.error('Invalid site policy: sitePattern is required');
+      return;
+    }
+
+    if (!policy.type || !['url', 'app', 'domain'].includes(policy.type)) {
+      console.error('Invalid site policy: type is required and must be valid');
+      return;
+    }
+
+    if (!policy.action || !['BLOCK', 'GATE', 'ALLOW'].includes(policy.action)) {
+      console.error('Invalid site policy: action is required and must be valid');
+      return;
+    }
+
+    const newPolicy: SitePolicy = {
+      ...policy,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      sitePattern: policy.sitePattern.trim().slice(0, 500),
+    };
+
+    set((state) => ({
+      sitePolicies: [...state.sitePolicies, newPolicy],
+      auditLog: [
+        {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          childId: policy.childId || 'global',
+          timestamp: new Date(),
+          type: 'site_policy',
+          details: {
+            ruleChange: `Added site policy: ${newPolicy.sitePattern} (${newPolicy.type})`,
+            action: newPolicy.action,
+          },
+        },
+        ...state.auditLog,
+      ],
+    }));
+  },
+
+  updateSitePolicy: (id, updates) => {
+    if (!id || typeof id !== 'string') {
+      console.error('Invalid policy ID');
+      return;
+    }
+
+    set((state) => {
+      const policy = state.sitePolicies.find((p) => p.id === id);
+      if (!policy) {
+        console.warn(`Site policy with ID ${id} not found`);
+        return state;
+      }
+
+      const sanitizedUpdates: Partial<SitePolicy> = {};
+      if (updates.sitePattern !== undefined) {
+        sanitizedUpdates.sitePattern = typeof updates.sitePattern === 'string' 
+          ? updates.sitePattern.trim().slice(0, 500) 
+          : policy.sitePattern;
+      }
+      if (updates.type !== undefined && ['url', 'app', 'domain'].includes(updates.type)) {
+        sanitizedUpdates.type = updates.type;
+      }
+      if (updates.action !== undefined && ['BLOCK', 'GATE', 'ALLOW'].includes(updates.action)) {
+        sanitizedUpdates.action = updates.action;
+      }
+      if (updates.ageGroup !== undefined) {
+        sanitizedUpdates.ageGroup = updates.ageGroup;
+      }
+      if (updates.gateMode !== undefined) {
+        sanitizedUpdates.gateMode = updates.gateMode;
+      }
+      if (updates.notes !== undefined) {
+        sanitizedUpdates.notes = typeof updates.notes === 'string' ? updates.notes.slice(0, 1000) : undefined;
+      }
+
+      return {
+        sitePolicies: state.sitePolicies.map((p) =>
+          p.id === id ? { ...p, ...sanitizedUpdates } : p
+        ),
+        auditLog: [
+          {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            childId: policy.childId || 'global',
+            timestamp: new Date(),
+            type: 'site_policy',
+            details: {
+              ruleChange: `Updated site policy: ${policy.sitePattern}`,
+            },
+          },
+          ...state.auditLog,
+        ],
+      };
+    });
+  },
+
+  removeSitePolicy: (id) => {
+    set((state) => {
+      const policy = state.sitePolicies.find((p) => p.id === id);
+      return {
+        sitePolicies: state.sitePolicies.filter((p) => p.id !== id),
+        auditLog: policy
+          ? [
+              {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                childId: policy.childId || 'global',
+                timestamp: new Date(),
+                type: 'site_policy',
+                details: {
+                  ruleChange: `Removed site policy: ${policy.sitePattern}`,
+                },
+              },
+              ...state.auditLog,
+            ]
+          : state.auditLog,
+      };
+    });
   },
 }));
 

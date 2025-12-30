@@ -7,16 +7,18 @@ import ContentCategoryView from '@/components/ContentCategoryView';
 import CustomControlsPanel from '@/components/CustomControlsPanel';
 import BlockedAttemptsView from '@/components/BlockedAttemptsView';
 import AuditLogView from '@/components/AuditLogView';
-import { Shield, Users, Settings, AlertTriangle, Filter, FileText } from 'lucide-react';
+import SitePolicyManager from '@/components/SitePolicyManager';
+import { Shield, Users, Settings, AlertTriangle, Filter, FileText, Globe } from 'lucide-react';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'children' | 'categories' | 'controls' | 'attempts' | 'audit'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'children' | 'categories' | 'controls' | 'attempts' | 'audit' | 'policies'>('dashboard');
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: Shield },
     { id: 'children', label: 'Children', icon: Users },
     { id: 'categories', label: 'Content Categories', icon: Filter },
     { id: 'controls', label: 'Custom Controls', icon: Settings },
+    { id: 'policies', label: 'Site Policies (V2)', icon: Globe },
     { id: 'attempts', label: 'Blocked Attempts', icon: AlertTriangle },
     { id: 'audit', label: 'Audit Log', icon: FileText },
   ];
@@ -66,6 +68,7 @@ export default function Home() {
         {activeTab === 'children' && <ChildProfileManager />}
         {activeTab === 'categories' && <ContentCategoryView />}
         {activeTab === 'controls' && <CustomControlsPanel />}
+        {activeTab === 'policies' && <SitePolicyManager />}
         {activeTab === 'attempts' && <BlockedAttemptsView />}
         {activeTab === 'audit' && <AuditLogView />}
       </main>
