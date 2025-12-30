@@ -3,6 +3,7 @@
 import { useStore } from '@/store/useStore';
 import { AGE_GROUP_LABELS } from '@/types';
 import { Shield, Users, AlertTriangle, CheckCircle } from 'lucide-react';
+import AdultSiteBlocklistInfo from './AdultSiteBlocklistInfo';
 
 export default function Dashboard() {
   const { children, blockedAttempts } = useStore();
@@ -27,6 +28,8 @@ export default function Dashboard() {
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h2>
         <p className="text-gray-600">Overview of your child safety settings and activity</p>
       </div>
+
+      <AdultSiteBlocklistInfo />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">

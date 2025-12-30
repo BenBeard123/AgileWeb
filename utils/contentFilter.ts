@@ -1,5 +1,6 @@
 import { AgeGroup, AccessAction, ContentCategory, CustomParentControl } from '@/types';
 import { contentCategories } from '@/data/contentCategories';
+import { isAdultSite, getMatchedAdultSite } from '@/data/adultSiteBlocklist';
 
 /**
  * Determines the access action for a given content type and age group
@@ -186,6 +187,18 @@ export function shouldBlockContent(
       categoryId: null,
       contentTypeId: null,
       reason: 'Invalid URL provided',
+    };
+  }
+
+  // Check adult site blocklist FIRST (highest priority - blocks all age groups)
+  if (isAdultSite(url)) {
+    const matchedSite = getMatchedAdultSite(url);
+    return {
+      blocked: true,
+      action: 'BLOCK',
+      categoryId: 'sexual',
+      contentTypeId: 'explicit-sexual',
+      reason: `Blocked adult site: ${matchedSite || 'known adult content site'}`,
     };
   }
 

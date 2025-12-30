@@ -12,6 +12,7 @@ import { detectCyberbullying } from './cyberbullyingDetection';
 import { detectAIContent } from './aiContentDetection';
 import { getAccessAction } from './contentFilter';
 import { findMatchingPolicies, SitePolicy } from './sitePolicyManager';
+import { isAdultSite, getMatchedAdultSite } from '@/data/adultSiteBlocklist';
 
 export interface EnhancedContentAnalysis {
   classification: ContentClassification;
@@ -254,7 +255,21 @@ export function shouldBlockContentEnhanced(
   reason: string;
   enhancedAnalysis?: EnhancedContentAnalysis;
 } {
-  // Check site policies first (highest priority)
+  // Check adult site blocklist FIRST (highest priority - blocks all age groups)
+  if (isAdultSite(url)) {
+    const matchedSite = getMatchedAdultSite(url);
+    return {
+      blocked: true,
+      action: 'BLOCK',
+      categoryId: 'sexual',
+      contentTypeId: 'explicit-sexual',
+      contextLabel: 'promotional',
+      confidence: 1.0,
+      reason: `Blocked adult site: ${matchedSite || 'known adult content site'}`,
+    };
+  }
+
+  // Check site policies second
   if (sitePolicies && sitePolicies.length > 0) {
     const matchingPolicies = findMatchingPolicies(url, sitePolicies);
     const relevantPolicy = matchingPolicies.find(p => p.ageGroup === ageGroup);
