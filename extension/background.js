@@ -1,7 +1,51 @@
 // Background service worker for AgileWeb Chrome Extension
 
-import { isAdultSite, getMatchedAdultSite } from './adultSiteBlocklist.js';
-import './uninstall-protection.js';
+// Inline adult site blocklist functions (to avoid import issues)
+const ADULT_SITE_BLOCKLIST = [
+  'pornhub.com', 'xvideos.com', 'xhamster.com', 'redtube.com', 'youporn.com', 'tube8.com',
+  'xxx.com', 'xxxvideos.com', 'onlyfans.com', 'chaturbate.com', 'livejasmin.com',
+  'myfreecams.com', 'stripchat.com', 'ashleymadison.com', 'adultfriendfinder.com',
+  'fetlife.com', 'brazzers.com', 'realitykings.com', 'bangbros.com', 'naughtyamerica.com',
+  'vivid.com', 'wicked.com', 'kink.com', 'penthouse.com', 'playboy.com', 'hustler.com',
+  'maxim.com', 'r/nsfw', 'r/gonewild', 'r/realgirls', 'r/nsfw_gifs', 'r/porn', 'r/xxx',
+];
+
+function isAdultSite(url) {
+  if (!url || typeof url !== 'string') return false;
+  const lowerUrl = url.toLowerCase();
+  return ADULT_SITE_BLOCKLIST.some(site => lowerUrl.includes(site));
+}
+
+function getMatchedAdultSite(url) {
+  if (!url || typeof url !== 'string') return null;
+  const lowerUrl = url.toLowerCase();
+  return ADULT_SITE_BLOCKLIST.find(site => lowerUrl.includes(site)) || null;
+}
+
+// Uninstall protection
+chrome.management.onUninstalled.addListener((extensionId) => {
+  chrome.runtime.getManifest().then((manifest) => {
+    if (extensionId === chrome.runtime.id) {
+      chrome.storage.sync.get(['agileweb_parental_password'], (result) => {
+        if (result.agileweb_parental_password && result.agileweb_parental_password.hasPassword) {
+          chrome.tabs.create({
+            url: chrome.runtime.getURL('blocked.html?reason=uninstall-protected&message=Extension is password protected. Please enter parental code in extension settings to uninstall.')
+          });
+        }
+      });
+    }
+  });
+});
+
+chrome.management.onDisabled.addListener((extensionInfo) => {
+  if (extensionInfo.id === chrome.runtime.id) {
+    chrome.storage.sync.get(['agileweb_parental_password'], (result) => {
+      if (result.agileweb_parental_password && result.agileweb_parental_password.hasPassword) {
+        chrome.management.setEnabled(extensionInfo.id, true);
+      }
+    });
+  }
+});
 
 // Listen for extension installation
 chrome.runtime.onInstalled.addListener((details) => {
@@ -292,12 +336,11 @@ async function logBlockedAttempt(data) {
       if (child && child.notificationEnabled) {
         try {
           const urlObj = new URL(data.url);
-          chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icons/icon48.png',
-            title: 'AgileWeb - Content Blocked',
-            message: `Blocked attempt to access: ${urlObj.hostname}`,
-          });
+      chrome.notifications.create({
+        type: 'basic',
+        title: 'AgileWeb - Content Blocked',
+        message: `Blocked attempt to access: ${urlObj.hostname}`,
+      });
         } catch (urlError) {
           // Invalid URL, skip notification
           console.error('Invalid URL for notification:', urlError);

@@ -8,13 +8,7 @@
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "orientation": "portrait-primary",
-  "icons": [
-    {
-      "src": "/favicon.ico",
-      "sizes": "any",
-      "type": "image/x-icon"
-    }
-  ],
+  "icons": [],
   "categories": ["parenting", "safety", "education"],
   "lang": "en-US",
   "dir": "ltr"
