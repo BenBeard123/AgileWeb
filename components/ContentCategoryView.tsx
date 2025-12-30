@@ -19,6 +19,9 @@ const actionIcons: Record<AccessAction, typeof Shield> = {
 
 export default function ContentCategoryView() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  
+  // Safety check
+  const safeCategories = Array.isArray(contentCategories) ? contentCategories : [];
 
   const toggleCategory = (categoryId: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -42,7 +45,8 @@ export default function ContentCategoryView() {
       </div>
 
       <div className="space-y-4">
-        {contentCategories.map((category) => {
+        {safeCategories.map((category) => {
+          if (!category || !category.id) return null;
           const isExpanded = expandedCategories.has(category.id);
           const Icon = isExpanded ? ChevronUp : ChevronDown;
 
@@ -79,30 +83,33 @@ export default function ContentCategoryView() {
                         </tr>
                       </thead>
                       <tbody>
-                        {category.contentTypes.map((contentType, idx) => (
-                          <tr
-                            key={contentType.id}
-                            className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
-                          >
-                            <td className="py-3 px-4 font-medium text-gray-900">
-                              {contentType.name}
-                            </td>
-                            {ageGroups.map((age) => {
-                              const action = contentType.rules[age];
-                              const ActionIcon = actionIcons[action];
-                              return (
-                                <td key={age} className="py-3 px-4 text-center">
-                                  <span
-                                    className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full border text-sm font-medium ${actionColors[action]}`}
-                                  >
-                                    <ActionIcon className="h-4 w-4" />
-                                    <span>{action}</span>
-                                  </span>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                        {(category.contentTypes || []).map((contentType, idx) => {
+                          if (!contentType || !contentType.id) return null;
+                          return (
+                            <tr
+                              key={contentType.id}
+                              className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
+                            >
+                              <td className="py-3 px-4 font-medium text-gray-900">
+                                {contentType.name || 'Unknown'}
+                              </td>
+                              {ageGroups.map((age) => {
+                                const action = contentType.rules?.[age] || 'ALLOW';
+                                const ActionIcon = actionIcons[action] || CheckCircle;
+                                return (
+                                  <td key={age} className="py-3 px-4 text-center">
+                                    <span
+                                      className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full border text-sm font-medium ${actionColors[action] || actionColors.ALLOW}`}
+                                    >
+                                      <ActionIcon className="h-4 w-4" />
+                                      <span>{action}</span>
+                                    </span>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

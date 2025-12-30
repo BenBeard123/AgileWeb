@@ -20,14 +20,15 @@ export function analyzeContext(
   categoryId: string,
   metadata?: { title?: string; description?: string }
 ): ContextAnalysis {
+  // Safety checks
   if (!text || typeof text !== 'string') text = '';
   if (!url || typeof url !== 'string') url = '';
+  if (!categoryId || typeof categoryId !== 'string') categoryId = 'unknown';
 
-  const fullText = (
-    text + ' ' +
-    (metadata?.title || '') + ' ' +
-    (metadata?.description || '')
-  ).toLowerCase();
+  const safeTitle = metadata?.title && typeof metadata.title === 'string' ? metadata.title : '';
+  const safeDescription = metadata?.description && typeof metadata.description === 'string' ? metadata.description : '';
+
+  const fullText = (text + ' ' + safeTitle + ' ' + safeDescription).toLowerCase();
 
   const lowerUrl = url.toLowerCase();
 
@@ -128,29 +129,29 @@ export function analyzeContext(
     'indoctrination',
   ];
 
-  // Count matches for each context type
+  // Count matches for each context type (with safety checks)
   const educationalScore = educationalIndicators.filter(ind => 
-    fullText.includes(ind) || lowerUrl.includes(ind)
+    ind && (fullText.includes(ind) || lowerUrl.includes(ind))
   ).length;
 
   const promotionalScore = promotionalIndicators.filter(ind => 
-    fullText.includes(ind) || lowerUrl.includes(ind)
+    ind && (fullText.includes(ind) || lowerUrl.includes(ind))
   ).length;
 
   const glorificationScore = glorificationIndicators.filter(ind => 
-    fullText.includes(ind)
+    ind && fullText.includes(ind)
   ).length;
 
   const newsScore = newsIndicators.filter(ind => 
-    fullText.includes(ind) || lowerUrl.includes(ind)
+    ind && (fullText.includes(ind) || lowerUrl.includes(ind))
   ).length;
 
   const helpSeekingScore = helpSeekingIndicators.filter(ind => 
-    fullText.includes(ind)
+    ind && fullText.includes(ind)
   ).length;
 
   const recruitmentScore = recruitmentIndicators.filter(ind => 
-    fullText.includes(ind) || lowerUrl.includes(ind)
+    ind && (fullText.includes(ind) || lowerUrl.includes(ind))
   ).length;
 
   // Determine context based on scores

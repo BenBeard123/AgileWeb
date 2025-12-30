@@ -66,14 +66,21 @@ export function detectSlang(text: string): SlangMatch[] {
 
   // Check for slang terms
   for (const [term, data] of Object.entries(SLANG_DICT)) {
-    // Use word boundaries for better matching
-    const regex = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-    if (regex.test(lowerText)) {
-      matches.push({
-        term,
-        category: data.category,
-        confidence: data.confidence,
-      });
+    if (!term || !data) continue;
+    try {
+      // Use word boundaries for better matching
+      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escapedTerm}\\b`, 'gi');
+      if (regex.test(lowerText)) {
+        matches.push({
+          term,
+          category: data.category || 'unknown',
+          confidence: data.confidence || 0.5,
+        });
+      }
+    } catch (error) {
+      // Skip invalid regex patterns
+      console.warn(`Invalid regex pattern for slang term: ${term}`, error);
     }
   }
 

@@ -97,7 +97,8 @@ export default function SitePolicyManager() {
 
   const getChildName = (childId?: string) => {
     if (!childId) return 'All Children';
-    const child = children.find((c) => c.id === childId);
+    const safeChildren = Array.isArray(children) ? children : [];
+    const child = safeChildren.find((c) => c && c.id === childId);
     return child?.name || 'Unknown';
   };
 
@@ -246,8 +247,10 @@ export default function SitePolicyManager() {
       )}
 
       <div className="space-y-4">
-        {sitePolicies.length > 0 ? (
-          sitePolicies.map((policy) => {
+        {(Array.isArray(sitePolicies) ? sitePolicies : []).length > 0 ? (
+          (Array.isArray(sitePolicies) ? sitePolicies : []).map((policy) => {
+            if (!policy || !policy.id) return null;
+            return (
             const Icon = getTypeIcon(policy.type);
             return (
               <div key={policy.id} className="bg-white rounded-lg shadow p-6">
@@ -310,7 +313,7 @@ export default function SitePolicyManager() {
                 </div>
               </div>
             );
-          })
+          }).filter(p => p !== null)
         ) : (
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <Globe className="h-16 w-16 text-gray-400 mx-auto mb-4" />

@@ -78,9 +78,15 @@ export default function CustomControlsPanel() {
     }
   };
 
-  const allControls = children.flatMap((child) =>
-    child.customControls.map((control) => ({ ...control, childName: child.name }))
-  );
+  // Safety check
+  const safeChildren = Array.isArray(children) ? children : [];
+  const allControls = safeChildren.flatMap((child) => {
+    if (!child || !Array.isArray(child.customControls)) return [];
+    return child.customControls.map((control) => ({ 
+      ...control, 
+      childName: child.name || 'Unknown' 
+    }));
+  });
 
   return (
     <div className="space-y-6">
@@ -182,8 +188,9 @@ export default function CustomControlsPanel() {
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Active Custom Controls</h3>
           <div className="space-y-3">
             {allControls.map((control) => {
+              if (!control || !control.id) return null;
               const Icon = getControlIcon(control.type);
-              const child = children.find((c) => c.id === control.childId);
+              const child = safeChildren.find((c) => c && c.id === control.childId);
               return (
                 <div
                   key={control.id}

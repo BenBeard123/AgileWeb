@@ -19,17 +19,23 @@ export interface SitePolicy {
  * Checks if a URL matches a site policy
  */
 export function matchesSitePolicy(url: string, policy: SitePolicy): boolean {
-  if (!url || !policy) return false;
+  if (!url || typeof url !== 'string') return false;
+  if (!policy || !policy.sitePattern || typeof policy.sitePattern !== 'string') return false;
 
   const lowerUrl = url.toLowerCase();
-  const lowerPattern = policy.sitePattern.toLowerCase();
+  const lowerPattern = policy.sitePattern.toLowerCase().trim();
+
+  if (lowerPattern.length === 0) return false;
 
   switch (policy.type) {
     case 'domain':
       try {
-        const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-        return urlObj.hostname === lowerPattern || urlObj.hostname.endsWith('.' + lowerPattern);
+        const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
+        const urlObj = new URL(normalizedUrl);
+        const hostname = urlObj.hostname.toLowerCase();
+        return hostname === lowerPattern || hostname.endsWith('.' + lowerPattern);
       } catch {
+        // Fallback to simple string matching if URL parsing fails
         return lowerUrl.includes(lowerPattern);
       }
 
@@ -52,9 +58,18 @@ export function findMatchingPolicies(
   url: string,
   policies: SitePolicy[]
 ): SitePolicy[] {
-  if (!url || !Array.isArray(policies)) return [];
+  if (!url || typeof url !== 'string') return [];
+  if (!Array.isArray(policies)) return [];
 
-  return policies.filter(policy => matchesSitePolicy(url, policy));
+  return policies.filter(policy => {
+    if (!policy || !policy.id) return false;
+    try {
+      return matchesSitePolicy(url, policy);
+    } catch (error) {
+      console.warn('Error matching site policy:', error);
+      return false;
+    }
+  });
 }
 
 /**

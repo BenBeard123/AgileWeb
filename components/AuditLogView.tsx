@@ -29,14 +29,22 @@ export default function AuditLogView() {
     return child?.name || 'Unknown';
   };
 
-  const groupedByDate = auditLog.reduce((acc, entry) => {
-    const date = new Date(entry.timestamp).toDateString();
-    if (!acc[date]) {
-      acc[date] = [];
+  // Safety check
+  const safeAuditLog = Array.isArray(auditLog) ? auditLog : [];
+
+  const groupedByDate = safeAuditLog.reduce((acc, entry) => {
+    if (!entry || !entry.timestamp) return acc;
+    try {
+      const date = new Date(entry.timestamp).toDateString();
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(entry);
+    } catch (error) {
+      console.error('Error processing audit log entry:', error);
     }
-    acc[date].push(entry);
     return acc;
-  }, {} as Record<string, typeof auditLog>);
+  }, {} as Record<string, typeof safeAuditLog>);
 
   return (
     <div className="space-y-6">
@@ -47,7 +55,7 @@ export default function AuditLogView() {
             Complete history of blocked attempts, approvals, overrides, and rule changes
           </p>
         </div>
-        {auditLog.length > 0 && (
+        {safeAuditLog.length > 0 && (
           <button
             onClick={clearAuditLog}
             className="flex items-center space-x-2 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
@@ -58,33 +66,57 @@ export default function AuditLogView() {
         )}
       </div>
 
-      {auditLog.length > 0 ? (
+      {safeAuditLog.length > 0 ? (
         <div className="space-y-6">
           {Object.entries(groupedByDate)
-            .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+            .sort(([a], [b]) => {
+              try {
+                return new Date(b).getTime() - new Date(a).getTime();
+              } catch {
+                return 0;
+              }
+            })
             .map(([date, entries]) => {
-              const Icon = typeIcons[entries[0]?.type] || FileText;
+              if (!entries || entries.length === 0) return null;
+              const firstEntry = entries[0];
+              if (!firstEntry) return null;
+              const entryType = firstEntry.type || 'rule_change';
+              const Icon = typeIcons[entryType as keyof typeof typeIcons] || FileText;
               return (
                 <div key={date} className="bg-white rounded-lg shadow">
                   <div className="px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {new Date(date).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
+                      {(() => {
+                        try {
+                          return new Date(date).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          });
+                        } catch {
+                          return date;
+                        }
+                      })()}
                     </h3>
                     <p className="text-sm text-gray-600">{entries.length} event(s)</p>
                   </div>
                   <div className="divide-y divide-gray-200">
                     {entries
-                      .sort(
-                        (a, b) =>
-                          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-                      )
+                      .sort((a, b) => {
+                        if (!a || !b || !a.timestamp || !b.timestamp) return 0;
+                        try {
+                          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+                        } catch {
+                          return 0;
+                        }
+                      })
+                      .filter(entry => entry !== null)
                       .map((entry) => {
-                        const EntryIcon = typeIcons[entry.type] || FileText;
+                        if (!entry) return null;
+                        const entryType = entry.type || 'rule_change';
+                        const EntryIcon = typeIcons[entryType as keyof typeof typeIcons] || FileText;
+                        const entryLabel = typeLabels[entryType as keyof typeof typeLabels] || 'Unknown';
                         return (
                           <div
                             key={entry.id}
@@ -96,7 +128,7 @@ export default function AuditLogView() {
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2 mb-1">
                                     <span className="font-medium text-gray-900">
-                                      {typeLabels[entry.type]}
+                                      {entryLabel}
                                     </span>
                                     <span className="text-sm text-gray-500">
                                       • {getChildName(entry.childId)}
@@ -145,10 +177,16 @@ export default function AuditLogView() {
                                 </div>
                               </div>
                               <div className="text-right text-sm text-gray-500 ml-4">
-                                {new Date(entry.timestamp).toLocaleTimeString('en-US', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
+                                {(() => {
+                                  try {
+                                    return new Date(entry.timestamp).toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    });
+                                  } catch {
+                                    return '';
+                                  }
+                                })()}
                               </div>
                             </div>
                           </div>

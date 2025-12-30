@@ -193,7 +193,9 @@ export default function ChildProfileManager() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {children.map((child) => (
+        {(Array.isArray(children) ? children : []).map((child) => {
+          if (!child || !child.id) return null;
+          return (
           <div key={child.id} className="bg-white rounded-lg shadow p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -248,7 +250,8 @@ export default function ChildProfileManager() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {children.length === 0 && !isAdding && (

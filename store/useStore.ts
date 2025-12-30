@@ -42,7 +42,7 @@ export const useStore = create<AgileWebStore>((set) => ({
 
     const newChild: ChildProfile = {
       ...child,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // More unique ID
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11), // More unique ID
       name: child.name.trim().slice(0, 100), // Sanitize name
       categoryOverrides: Array.isArray(child.categoryOverrides) ? child.categoryOverrides : [],
       customControls: Array.isArray(child.customControls) ? child.customControls : [],

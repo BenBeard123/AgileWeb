@@ -190,6 +190,32 @@ export function analyzeContentEnhanced(
   if (cyberbullyingDetected) confidence = Math.max(confidence, cyberbullyingAnalysis.confidence);
 
   // Get recommended actions for all age groups
+  // Safety check: ensure basicAnalysis exists
+  if (!basicAnalysis || !basicAnalysis.categoryId || !basicAnalysis.contentTypeId) {
+    return {
+      classification: {
+        categoryId: 'unknown',
+        contentTypeId: 'unknown',
+        confidence: 0.3,
+        contextLabel: 'discussion',
+        recommendedAction: {
+          UNDER_10: 'ALLOW',
+          AGE_10_13: 'ALLOW',
+          AGE_13_16: 'ALLOW',
+          AGE_16_18: 'ALLOW',
+          AGE_18_PLUS: 'ALLOW',
+        },
+      },
+      contextLabel: 'discussion',
+      confidence: 0.3,
+      slangDetected: false,
+      selfHarmDetected: false,
+      cyberbullyingDetected: false,
+      aiContentDetected: false,
+      reasoning: ['Invalid content analysis result'],
+    };
+  }
+
   const recommendedAction: Record<AgeGroup, AccessAction> = {
     UNDER_10: getAccessAction(basicAnalysis.categoryId, basicAnalysis.contentTypeId, 'UNDER_10') || 'ALLOW',
     AGE_10_13: getAccessAction(basicAnalysis.categoryId, basicAnalysis.contentTypeId, 'AGE_10_13') || 'ALLOW',
@@ -286,18 +312,30 @@ export function shouldBlockContentEnhanced(
   }
 
   // Enhanced content analysis
-  const enhancedAnalysis = analyzeContentEnhanced(url, content, ageGroup, metadata);
-  const recommendedAction = enhancedAnalysis.classification.recommendedAction[ageGroup];
+  try {
+    const enhancedAnalysis = analyzeContentEnhanced(url, content, ageGroup, metadata);
+    const recommendedAction = enhancedAnalysis.classification.recommendedAction[ageGroup] || 'ALLOW';
 
-  return {
-    blocked: recommendedAction === 'BLOCK',
-    action: recommendedAction,
-    categoryId: enhancedAnalysis.classification.categoryId,
-    contentTypeId: enhancedAnalysis.classification.contentTypeId,
-    contextLabel: enhancedAnalysis.contextLabel,
-    confidence: enhancedAnalysis.confidence,
-    reason: enhancedAnalysis.reasoning.join('; '),
-    enhancedAnalysis,
-  };
+    return {
+      blocked: recommendedAction === 'BLOCK',
+      action: recommendedAction,
+      categoryId: enhancedAnalysis.classification.categoryId || null,
+      contentTypeId: enhancedAnalysis.classification.contentTypeId || null,
+      contextLabel: enhancedAnalysis.contextLabel,
+      confidence: enhancedAnalysis.confidence,
+      reason: enhancedAnalysis.reasoning.join('; ') || 'Content analyzed',
+      enhancedAnalysis,
+    };
+  } catch (error) {
+    console.error('Error in enhanced content analysis:', error);
+    // Fallback to basic analysis
+    return {
+      blocked: false,
+      action: 'ALLOW',
+      categoryId: null,
+      contentTypeId: null,
+      reason: 'Error during content analysis, defaulting to allow',
+    };
+  }
 }
 

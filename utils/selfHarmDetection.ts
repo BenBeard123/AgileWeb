@@ -95,11 +95,11 @@ export function detectSelfHarm(
     };
   }
 
-  // Count matches
-  const helpSeekingCount = helpSeekingTerms.filter(term => fullText.includes(term)).length;
-  const encouragementCount = encouragementTerms.filter(term => fullText.includes(term)).length;
-  const instructionCount = instructionTerms.filter(term => fullText.includes(term)).length;
-  const discussionCount = discussionTerms.filter(term => fullText.includes(term)).length;
+  // Count matches (with safety checks)
+  const helpSeekingCount = helpSeekingTerms.filter(term => term && fullText.includes(term)).length;
+  const encouragementCount = encouragementTerms.filter(term => term && fullText.includes(term)).length;
+  const instructionCount = instructionTerms.filter(term => term && fullText.includes(term)).length;
+  const discussionCount = discussionTerms.filter(term => term && fullText.includes(term)).length;
 
   // Determine type and severity
   if (instructionCount > 0 && hasSelfHarmTerms) {

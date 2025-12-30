@@ -18,14 +18,22 @@ export default function BlockedAttemptsView() {
     ALLOW: 'bg-green-100 text-green-800 border-green-300',
   };
 
-  const groupedByDate = blockedAttempts.reduce((acc, attempt) => {
-    const date = new Date(attempt.timestamp).toDateString();
-    if (!acc[date]) {
-      acc[date] = [];
+  // Safety checks
+  const safeBlockedAttempts = Array.isArray(blockedAttempts) ? blockedAttempts : [];
+
+  const groupedByDate = safeBlockedAttempts.reduce((acc, attempt) => {
+    if (!attempt || !attempt.timestamp) return acc;
+    try {
+      const date = new Date(attempt.timestamp).toDateString();
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(attempt);
+    } catch (error) {
+      console.error('Error processing blocked attempt:', error);
     }
-    acc[date].push(attempt);
     return acc;
-  }, {} as Record<string, typeof blockedAttempts>);
+  }, {} as Record<string, typeof safeBlockedAttempts>);
 
   return (
     <div className="space-y-6">
@@ -36,7 +44,7 @@ export default function BlockedAttemptsView() {
             View all blocked, gated, or flagged content access attempts
           </p>
         </div>
-        {blockedAttempts.length > 0 && (
+        {safeBlockedAttempts.length > 0 && (
           <button
             onClick={clearBlockedAttempts}
             className="flex items-center space-x-2 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
@@ -47,30 +55,51 @@ export default function BlockedAttemptsView() {
         )}
       </div>
 
-      {blockedAttempts.length > 0 ? (
+      {safeBlockedAttempts.length > 0 ? (
         <div className="space-y-6">
           {Object.entries(groupedByDate)
-            .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-            .map(([date, attempts]) => (
+            .sort(([a], [b]) => {
+              try {
+                return new Date(b).getTime() - new Date(a).getTime();
+              } catch {
+                return 0;
+              }
+            })
+            .map(([date, attempts]) => {
+              if (!attempts || attempts.length === 0) return null;
+              return (
               <div key={date} className="bg-white rounded-lg shadow">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {new Date(date).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
+                    {(() => {
+                      try {
+                        return new Date(date).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        });
+                      } catch {
+                        return date;
+                      }
+                    })()}
                   </h3>
                   <p className="text-sm text-gray-600">{attempts.length} attempt(s)</p>
                 </div>
                 <div className="divide-y divide-gray-200">
                   {attempts
-                    .sort(
-                      (a, b) =>
-                        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-                    )
-                    .map((attempt) => (
+                    .sort((a, b) => {
+                      if (!a || !b || !a.timestamp || !b.timestamp) return 0;
+                      try {
+                        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+                      } catch {
+                        return 0;
+                      }
+                    })
+                    .filter(attempt => attempt !== null)
+                    .map((attempt) => {
+                      if (!attempt) return null;
+                      return (
                       <div key={attempt.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -100,17 +129,25 @@ export default function BlockedAttemptsView() {
                             </div>
                           </div>
                           <div className="text-right text-sm text-gray-500 ml-4">
-                            {new Date(attempt.timestamp).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            {(() => {
+                              try {
+                                return new Date(attempt.timestamp).toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                });
+                              } catch {
+                                return '';
+                              }
+                            })()}
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                 </div>
               </div>
-            ))}
+            );
+            })}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow p-12 text-center">

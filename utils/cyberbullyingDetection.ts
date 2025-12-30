@@ -72,33 +72,49 @@ export function detectCyberbullying(text: string): CyberbullyingAnalysis {
   // Count matches
   let hateSpeechCount = 0;
   hateSpeechTerms.forEach(term => {
-    if (lowerText.includes(term)) {
+    if (term && lowerText.includes(term)) {
       hateSpeechCount++;
-      patterns.push('hate_speech');
+      if (!patterns.includes('hate_speech')) {
+        patterns.push('hate_speech');
+      }
     }
   });
 
   let harassmentCount = 0;
   harassmentPatterns.forEach(pattern => {
-    if (pattern.test(text)) {
-      harassmentCount++;
-      patterns.push('harassment');
+    try {
+      if (pattern.test(text)) {
+        harassmentCount++;
+        if (!patterns.includes('harassment')) {
+          patterns.push('harassment');
+        }
+      }
+    } catch (error) {
+      console.warn('Error testing harassment pattern:', error);
     }
   });
 
   let exclusionCount = 0;
   exclusionPatterns.forEach(pattern => {
-    if (pattern.test(text)) {
-      exclusionCount++;
-      patterns.push('exclusion');
+    try {
+      if (pattern.test(text)) {
+        exclusionCount++;
+        if (!patterns.includes('exclusion')) {
+          patterns.push('exclusion');
+        }
+      }
+    } catch (error) {
+      console.warn('Error testing exclusion pattern:', error);
     }
   });
 
   let bodyShamingCount = 0;
   bodyShamingTerms.forEach(term => {
-    if (lowerText.includes(term)) {
+    if (term && lowerText.includes(term)) {
       bodyShamingCount++;
-      patterns.push('body_shaming');
+      if (!patterns.includes('body_shaming')) {
+        patterns.push('body_shaming');
+      }
     }
   });
 
