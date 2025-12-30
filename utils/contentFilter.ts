@@ -38,7 +38,10 @@ export function checkCustomControls(
   const lowerUrl = url.toLowerCase();
   const lowerContent = content.toLowerCase();
 
-  for (const control of customControls) {
+  // Limit iteration to prevent performance issues
+  const maxControls = Math.min(customControls.length, 100);
+  for (let i = 0; i < maxControls; i++) {
+    const control = customControls[i];
     // Skip invalid controls
     if (!control || !control.value || typeof control.value !== 'string') continue;
     if (!control.action || !['BLOCK', 'GATE', 'ALLOW'].includes(control.action)) continue;

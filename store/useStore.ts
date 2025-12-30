@@ -50,19 +50,26 @@ export const useStore = create<AgileWebStore>((set) => ({
       defaultGateMode: child.defaultGateMode || 'warning',
     };
     
-    set((state) => ({
-      children: [...state.children, newChild],
-      auditLog: [
-        {
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-          childId: newChild.id,
-          timestamp: new Date(),
-          type: 'rule_change',
-          details: { ruleChange: `Created profile for ${newChild.name}` },
-        },
-        ...state.auditLog,
-      ],
-    }));
+    set((state) => {
+      // Limit children to prevent memory issues (max 20 children)
+      const limitedChildren = state.children.length >= 20 
+        ? [...state.children.slice(0, 19), newChild]
+        : [...state.children, newChild];
+      
+      return {
+        children: limitedChildren,
+        auditLog: [
+          {
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
+            childId: newChild.id,
+            timestamp: new Date(),
+            type: 'rule_change',
+            details: { ruleChange: `Created profile for ${newChild.name}` },
+          },
+          ...state.auditLog.slice(0, 999),
+        ],
+      };
+    });
   },
   
   updateChild: (id, updates) => {
@@ -117,13 +124,13 @@ export const useStore = create<AgileWebStore>((set) => ({
         ),
         auditLog: [
           {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
             childId: id,
             timestamp: new Date(),
             type: 'rule_change',
             details: { ruleChange: `Updated profile for ${child.name}` },
           },
-          ...state.auditLog,
+          ...state.auditLog.slice(0, 999),
         ],
       };
     });
@@ -161,7 +168,7 @@ export const useStore = create<AgileWebStore>((set) => ({
     const newControl: CustomParentControl = {
       ...control,
       value: sanitizedValue,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
       childId,
     };
 
@@ -181,18 +188,24 @@ export const useStore = create<AgileWebStore>((set) => ({
         return state;
       }
 
+      // Limit custom controls per child (max 100)
+      const currentControls = child.customControls || [];
+      const limitedControls = currentControls.length >= 100 
+        ? [...currentControls.slice(0, 99), newControl]
+        : [...currentControls, newControl];
+
       return {
         children: state.children.map((child) =>
           child.id === childId
             ? {
                 ...child,
-                customControls: [...child.customControls, newControl],
+                customControls: limitedControls,
               }
             : child
         ),
         auditLog: [
           {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
             childId,
             timestamp: new Date(),
             type: 'custom_control',
@@ -201,7 +214,7 @@ export const useStore = create<AgileWebStore>((set) => ({
               ruleChange: `Added ${control.type} control: ${sanitizedValue}`,
             },
           },
-          ...state.auditLog,
+          ...state.auditLog.slice(0, 999),
         ],
       };
     });
@@ -225,7 +238,7 @@ export const useStore = create<AgileWebStore>((set) => ({
         auditLog: control
           ? [
               {
-                id: Date.now().toString(),
+                id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
                 childId,
                 timestamp: new Date(),
                 type: 'custom_control',
@@ -233,7 +246,7 @@ export const useStore = create<AgileWebStore>((set) => ({
                   ruleChange: `Removed ${control.type} control: ${control.value}`,
                 },
               },
-              ...state.auditLog,
+              ...state.auditLog.slice(0, 999),
             ]
           : state.auditLog,
       };
@@ -241,34 +254,81 @@ export const useStore = create<AgileWebStore>((set) => ({
   },
   
   addCategoryOverride: (childId, override) => {
+    // Validation
+    if (!childId || typeof childId !== 'string') {
+      console.error('Invalid childId provided');
+      return;
+    }
+
+    if (!override || !override.categoryId || typeof override.categoryId !== 'string') {
+      console.error('Invalid override: categoryId is required');
+      return;
+    }
+
+    if (!override.ageGroup || !['UNDER_10', 'AGE_10_13', 'AGE_13_16', 'AGE_16_18', 'AGE_18_PLUS'].includes(override.ageGroup)) {
+      console.error('Invalid override: ageGroup is required and must be valid');
+      return;
+    }
+
+    if (!override.action || !['BLOCK', 'GATE', 'ALLOW'].includes(override.action)) {
+      console.error('Invalid override: action is required and must be valid');
+      return;
+    }
+
     const newOverride: CategoryOverride = {
       ...override,
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
     } as CategoryOverride;
-    set((state) => ({
-      children: state.children.map((child) =>
-        child.id === childId
-          ? {
-              ...child,
-              categoryOverrides: [...child.categoryOverrides, newOverride],
-            }
-          : child
-      ),
-      auditLog: [
-        {
-          id: Date.now().toString(),
-          childId,
-          timestamp: new Date(),
-          type: 'override',
-          details: {
-            category: override.categoryId,
-            contentType: override.contentTypeId,
-            action: override.action,
+    
+    set((state) => {
+      const child = state.children.find((c) => c.id === childId);
+      if (!child) {
+        console.warn(`Child with ID ${childId} not found`);
+        return state;
+      }
+
+      // Check for duplicates
+      const isDuplicate = child.categoryOverrides.some(
+        (o) => o.categoryId === override.categoryId && 
+               o.contentTypeId === override.contentTypeId &&
+               o.ageGroup === override.ageGroup
+      );
+      if (isDuplicate) {
+        console.warn('Duplicate category override detected');
+        return state;
+      }
+
+      // Limit overrides per child (max 50)
+      const currentOverrides = child.categoryOverrides || [];
+      const limitedOverrides = currentOverrides.length >= 50 
+        ? [...currentOverrides.slice(0, 49), newOverride]
+        : [...currentOverrides, newOverride];
+
+      return {
+        children: state.children.map((child) =>
+          child.id === childId
+            ? {
+                ...child,
+                categoryOverrides: limitedOverrides,
+              }
+            : child
+        ),
+        auditLog: [
+          {
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
+            childId,
+            timestamp: new Date(),
+            type: 'override',
+            details: {
+              category: override.categoryId,
+              contentType: override.contentTypeId,
+              action: override.action,
+            },
           },
-        },
-        ...state.auditLog,
-      ],
-    }));
+          ...state.auditLog.slice(0, 999),
+        ],
+      };
+    });
   },
   
   removeCategoryOverride: (childId, overrideId) => {
@@ -309,7 +369,7 @@ export const useStore = create<AgileWebStore>((set) => ({
       url: sanitizedUrl,
       category: attempt.category || 'unknown',
       contentType: attempt.contentType || 'unknown',
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
       timestamp: new Date(),
     };
 
@@ -317,12 +377,17 @@ export const useStore = create<AgileWebStore>((set) => ({
       // Limit blocked attempts to prevent memory issues (keep last 1000)
       const limitedAttempts = state.blockedAttempts.slice(0, 999);
       const limitedAuditLog = state.auditLog.slice(0, 999);
+      
+      // Limit site policies to prevent memory issues (max 200)
+      const limitedSitePolicies = state.sitePolicies.length > 200 
+        ? state.sitePolicies.slice(0, 200)
+        : state.sitePolicies;
 
       return {
         blockedAttempts: [newAttempt, ...limitedAttempts],
         auditLog: [
           {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
             childId: attempt.childId,
             timestamp: new Date(),
             type: 'blocked_attempt',
@@ -335,6 +400,7 @@ export const useStore = create<AgileWebStore>((set) => ({
           },
           ...limitedAuditLog,
         ],
+        sitePolicies: limitedSitePolicies,
       };
     });
   },
@@ -344,14 +410,25 @@ export const useStore = create<AgileWebStore>((set) => ({
   },
   
   addAuditLogEntry: (entry) => {
+    // Validation
+    if (!entry || !entry.childId || typeof entry.childId !== 'string') {
+      console.error('Invalid audit log entry: childId is required');
+      return;
+    }
+
     const newEntry: AuditLogEntry = {
       ...entry,
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
       timestamp: new Date(),
     };
-    set((state) => ({
-      auditLog: [newEntry, ...state.auditLog],
-    }));
+    
+    set((state) => {
+      // Limit audit log to prevent memory issues (keep last 1000 entries)
+      const limitedAuditLog = state.auditLog.slice(0, 999);
+      return {
+        auditLog: [newEntry, ...limitedAuditLog],
+      };
+    });
   },
   
   clearAuditLog: () => {
@@ -378,26 +455,33 @@ export const useStore = create<AgileWebStore>((set) => ({
 
     const newPolicy: SitePolicy = {
       ...policy,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
       sitePattern: policy.sitePattern.trim().slice(0, 500),
     };
 
-    set((state) => ({
-      sitePolicies: [...state.sitePolicies, newPolicy],
-      auditLog: [
-        {
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-          childId: policy.childId || 'global',
-          timestamp: new Date(),
-          type: 'site_policy',
-          details: {
-            ruleChange: `Added site policy: ${newPolicy.sitePattern} (${newPolicy.type})`,
-            action: newPolicy.action,
+    set((state) => {
+      // Limit site policies to prevent memory issues (max 200)
+      const limitedSitePolicies = state.sitePolicies.length >= 200 
+        ? [...state.sitePolicies.slice(0, 199), newPolicy]
+        : [...state.sitePolicies, newPolicy];
+
+      return {
+        sitePolicies: limitedSitePolicies,
+        auditLog: [
+          {
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
+            childId: policy.childId || 'global',
+            timestamp: new Date(),
+            type: 'site_policy',
+            details: {
+              ruleChange: `Added site policy: ${newPolicy.sitePattern} (${newPolicy.type})`,
+              action: newPolicy.action,
+            },
           },
-        },
-        ...state.auditLog,
-      ],
-    }));
+          ...state.auditLog.slice(0, 999),
+        ],
+      };
+    });
   },
 
   updateSitePolicy: (id, updates) => {
@@ -441,7 +525,7 @@ export const useStore = create<AgileWebStore>((set) => ({
         ),
         auditLog: [
           {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
             childId: policy.childId || 'global',
             timestamp: new Date(),
             type: 'site_policy',
@@ -449,7 +533,7 @@ export const useStore = create<AgileWebStore>((set) => ({
               ruleChange: `Updated site policy: ${policy.sitePattern}`,
             },
           },
-          ...state.auditLog,
+          ...state.auditLog.slice(0, 999),
         ],
       };
     });
@@ -463,7 +547,7 @@ export const useStore = create<AgileWebStore>((set) => ({
         auditLog: policy
           ? [
               {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
                 childId: policy.childId || 'global',
                 timestamp: new Date(),
                 type: 'site_policy',
@@ -471,7 +555,7 @@ export const useStore = create<AgileWebStore>((set) => ({
                   ruleChange: `Removed site policy: ${policy.sitePattern}`,
                 },
               },
-              ...state.auditLog,
+              ...state.auditLog.slice(0, 999),
             ]
           : state.auditLog,
       };

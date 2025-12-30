@@ -66,9 +66,9 @@ export default function ChildProfileManager() {
       name: child.name,
       ageGroup: child.ageGroup,
       notificationEnabled: child.notificationEnabled,
-      defaultGateMode: child.defaultGateMode,
-      categoryOverrides: child.categoryOverrides || [],
-      customControls: child.customControls || [],
+      defaultGateMode: child.defaultGateMode || 'warning',
+      categoryOverrides: Array.isArray(child.categoryOverrides) ? child.categoryOverrides : [],
+      customControls: Array.isArray(child.customControls) ? child.customControls : [],
     });
     setEditingId(child.id);
     setIsAdding(true);

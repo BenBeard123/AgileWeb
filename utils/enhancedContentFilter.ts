@@ -295,10 +295,12 @@ export function shouldBlockContentEnhanced(
     };
   }
 
-  // Check site policies second
-  if (sitePolicies && sitePolicies.length > 0) {
-    const matchingPolicies = findMatchingPolicies(url, sitePolicies);
-    const relevantPolicy = matchingPolicies.find(p => p.ageGroup === ageGroup);
+  // Check site policies second (limit to prevent performance issues)
+  if (sitePolicies && Array.isArray(sitePolicies) && sitePolicies.length > 0) {
+    // Limit to first 200 policies for performance
+    const limitedPolicies = sitePolicies.slice(0, 200);
+    const matchingPolicies = findMatchingPolicies(url, limitedPolicies);
+    const relevantPolicy = matchingPolicies.find(p => p && p.ageGroup === ageGroup);
     
     if (relevantPolicy) {
       return {
@@ -306,7 +308,7 @@ export function shouldBlockContentEnhanced(
         action: relevantPolicy.action,
         categoryId: null,
         contentTypeId: null,
-        reason: `Site policy: ${relevantPolicy.sitePattern}`,
+        reason: `Site policy: ${relevantPolicy.sitePattern || 'unknown'}`,
       };
     }
   }
